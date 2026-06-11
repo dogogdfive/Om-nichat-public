@@ -262,7 +262,12 @@ export const ChatChannelTabs = memo(function ChatChannelTabs({
 });
 
 export function messageMatchesChatTab(
-  line: { channelId: string; login: string; platform?: string },
+  line: {
+    channelId: string;
+    login: string;
+    platform?: string;
+    streamEventKind?: string;
+  },
   tab: ChatTab,
   handles?: ChatTabHandle[],
 ): boolean {
@@ -279,8 +284,12 @@ export function messageMatchesChatTab(
     return handle === channelId;
   };
 
+  const matchesPlatform = (h: ChatTabHandle) =>
+    !platform || h.platform.toLowerCase() === platform;
+
   if (tab.isAll) {
     if (list.length === 0) return true;
+    if (line.streamEventKind) return list.some(matchesPlatform);
     return list.some(matchesHandle);
   }
 

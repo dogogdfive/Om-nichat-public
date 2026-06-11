@@ -55,6 +55,8 @@ type ChatMessageLine = {
   ts?: number;
   modNote?: string;
   inlineEmotes?: { id: string; name: string; url: string }[];
+  streamEventKind?: StreamAlertEvent["kind"];
+  streamEventAmount?: string;
 };
 
 type SystemVariant = "plain" | "welcome" | "action" | "connected";
@@ -283,6 +285,7 @@ function ChatApp() {
     setLines((prev) =>
       prev.filter((l) => {
         if (l.kind !== "message") return true;
+        if (l.userId.startsWith("event:")) return true;
         if (allowed.size === 0) return false;
         const key = `${l.platform.toLowerCase()}:${l.channelId.replace(/^@/, "").replace(/^#/, "").toLowerCase()}`;
         return allowed.has(key);
@@ -692,13 +695,6 @@ function ChatApp() {
 
           if (data.type === "stream_alert" && data.alert) {
             const alert = data.alert as StreamAlertEvent;
-            const alertChannel = (alert.channelId ?? "")
-              .replace(/^#/, "")
-              .replace(/^@/, "")
-              .toLowerCase();
-            const alertKey = `${String(alert.platform ?? "").toLowerCase()}:${alertChannel}`;
-            const allowedAlerts = watchedChannelKeysRef.current;
-            if (allowedAlerts.size > 0 && alertChannel && !allowedAlerts.has(alertKey)) return;
             if (seenStreamAlertIdsRef.current.has(alert.id)) return;
             seenStreamAlertIdsRef.current.add(alert.id);
             if (seenStreamAlertIdsRef.current.size > 500) {

@@ -3,6 +3,7 @@ import type {
   HubEvent,
   PinnedMessageEvent,
   PollEvent,
+  StreamAlertEvent,
 } from "@omnichat/chat-types";
 import type { WebSocket } from "ws";
 const MAX = 500;
@@ -16,6 +17,8 @@ export class ChatHub {
   // multiple platforms can each have an active poll/pin. Replayed on subscribe.
   private polls = new Map<string, Map<string, PollEvent>>();
   private pinned = new Map<string, Map<string, PinnedMessageEvent>>();
+  /** Recent stream alerts per room — replayed on subscribe (not persisted). */
+  private streamAlerts = new Map<string, StreamAlertEvent[]>();
 
   private stateKey(platform: string, channelId?: string): string {
     return `${platform}:${channelId ?? ""}`;
@@ -58,6 +61,11 @@ export class ChatHub {
       this.pinned.set(roomId, map);
     } else if (event.type === "pinned_clear") {
       this.pinned.get(roomId)?.delete(this.stateKey(event.platform, event.channelId));
+    } else if (event.type === "stream_alert") {
+      const buf = this.streamAlerts.get(roomId) ?? [];
+      buf.push(event.alert);
+      if (buf.length > 50) buf.splice(0, buf.length - 50);
+      this.streamAlerts.set(roomId, buf);
     }
     const payload = JSON.stringify(event);
     for (const client of this.rooms.get(roomId) ?? [])
@@ -73,6 +81,8 @@ export class ChatHub {
       ws.send(JSON.stringify({ type: "poll", poll }));
     for (const pinned of this.pinned.get(roomId)?.values() ?? [])
       ws.send(JSON.stringify({ type: "pinned", pinned }));
+    for (const alert of this.streamAlerts.get(roomId) ?? [])
+      ws.send(JSON.stringify({ type: "stream_alert", alert }));
   }
 
   unsubscribe(roomId: string, ws: WebSocket) {
