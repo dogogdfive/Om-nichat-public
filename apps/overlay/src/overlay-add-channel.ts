@@ -1,10 +1,14 @@
 import {
-  CHAT_SETTINGS_KEY,
   requestActivateProfileTab,
   syncChatTabsFromSettings,
   type ChatTabHandle,
 } from "@omnichat/chat-tabs";
 import { overlayFetch } from "./overlay-api";
+import {
+  loadOverlaySettings,
+  saveOverlaySettings,
+  type SettingsSnapshot,
+} from "./overlay-settings";
 import { syncChatTabsToServer } from "./sync-tabs";
 import {
   groupChannelsByPlatform,
@@ -14,48 +18,6 @@ import {
   type ChannelPlatform,
   type ParsedChannel,
 } from "./parse-channel-input";
-
-const SETTINGS_CHANGED = "omnichat-chat-settings-changed";
-
-type ChannelEntry = {
-  id: string;
-  platform: string;
-  handle: string;
-  profileId: string;
-  sendLinked?: boolean;
-};
-
-type StreamerProfile = { id: string; label: string };
-
-type SettingsSnapshot = {
-  profiles: StreamerProfile[];
-  channels: ChannelEntry[];
-};
-
-function loadSettings(): SettingsSnapshot {
-  try {
-    const raw = localStorage.getItem(CHAT_SETTINGS_KEY);
-    if (!raw) return { profiles: [], channels: [] };
-    const parsed = JSON.parse(raw) as Partial<SettingsSnapshot>;
-    return {
-      profiles: parsed.profiles ?? [],
-      channels: (parsed.channels ?? []) as ChannelEntry[],
-    };
-  } catch {
-    return { profiles: [], channels: [] };
-  }
-}
-
-function saveSettings(next: SettingsSnapshot): void {
-  try {
-    const raw = localStorage.getItem(CHAT_SETTINGS_KEY);
-    const existing = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-    localStorage.setItem(CHAT_SETTINGS_KEY, JSON.stringify({ ...existing, ...next }));
-    window.dispatchEvent(new Event(SETTINGS_CHANGED));
-  } catch {
-    /* ignore */
-  }
-}
 
 async function resolveYoutube(
   ws: string,
@@ -84,24 +46,11 @@ async function resolveYoutube(
   return { platform: "youtube", handle: body.handle };
 }
 
-async function discoverChannels(
+export async function syncIngest(
   ws: string,
   workspaceId: string,
-  platform: string,
-  handle: string,
-): Promise<{ platform: string; handle: string }[]> {
-  const res = await overlayFetch(ws, `/api/workspaces/${workspaceId}/channels/discover`, {
-    method: "POST",
-    body: JSON.stringify({ platform, handle }),
-  });
-  if (!res.ok) return [];
-  const json = (await res.json()) as {
-    channels?: { platform: string; handle: string; exists?: boolean }[];
-  };
-  return (json.channels ?? []).filter((c) => c.exists !== false);
-}
-
-async function syncIngest(ws: string, workspaceId: string, channels: ChannelEntry[]): Promise<void> {
+  channels: SettingsSnapshot["channels"],
+): Promise<void> {
   const grouped = groupChannelsByPlatform(channels);
   const payload: Record<string, string[]> = {};
   for (const platform of INGEST_CHANNEL_PLATFORMS) {
@@ -130,7 +79,7 @@ export async function addOverlayChannel(
     parsed = resolved;
   }
 
-  const settings = loadSettings();
+  const settings = loadOverlaySettings();
   const duplicate = settings.channels.some(
     (c) =>
       c.platform.toLowerCase() === parsed.platform &&
@@ -144,13 +93,6 @@ export async function addOverlayChannel(
   };
   const handles: ChatTabHandle[] = [{ platform: parsed.platform, handle: parsed.handle }];
 
-  const discovered = await discoverChannels(ws, workspaceId, parsed.platform, parsed.handle);
-  for (const ch of discovered) {
-    if (!handles.some((h) => h.platform === ch.platform && h.handle === ch.handle)) {
-      handles.push({ platform: ch.platform, handle: ch.handle });
-    }
-  }
-
   const channels = [...settings.channels];
   for (const h of handles) {
     if (
@@ -161,7 +103,6 @@ export async function addOverlayChannel(
       )
     ) {
       channels.push({
-        id: crypto.randomUUID(),
         platform: h.platform,
         handle: h.handle,
         profileId: profile.id,
@@ -170,7 +111,7 @@ export async function addOverlayChannel(
   }
 
   const profiles = [...settings.profiles, profile];
-  saveSettings({ profiles, channels });
+  saveOverlaySettings({ profiles, channels });
   requestActivateProfileTab(profile.id);
   const tabState = syncChatTabsFromSettings(profiles, channels);
 

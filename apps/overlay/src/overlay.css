@@ -253,15 +253,18 @@ body,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: 22px;
+  min-height: 22px;
   margin-left: -6px;
-  padding: 2px;
+  padding: 2px 4px;
   border: none;
   cursor: pointer;
   border-radius: 4px;
-  color: #a1a1aa;
-  background: transparent;
   font-size: 14px;
   line-height: 1;
+  color: #a1a1aa;
+  background: transparent;
+  flex-shrink: 0;
 }
 
 .overlay-channel-tab-close:hover {

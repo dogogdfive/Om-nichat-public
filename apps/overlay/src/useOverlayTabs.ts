@@ -14,11 +14,12 @@ import {
   type ChatTabsState,
 } from "@omnichat/chat-tabs";
 import type { OverlayParams } from "./params";
+import { removeOverlayTabAndSync } from "./overlay-remove-tab";
+import { SETTINGS_CHANGED } from "./overlay-settings";
 import { markRemoteChatTabsSync, syncChatTabsToServer, workspaceIdFromRoom } from "./sync-tabs";
 
 const CHAT_TABS_CHANGED = "omnichat-chat-tabs-changed";
 const CHAT_SETTINGS_KEY = "omnichat-chat-settings";
-const SETTINGS_CHANGED = "omnichat-chat-settings-changed";
 
 export function useOverlayTabs(params: OverlayParams) {
   const workspaceId = workspaceIdFromRoom(params.room);
@@ -86,6 +87,8 @@ export function useOverlayTabs(params: OverlayParams) {
           /* ignore */
         }
       }
+      setCombineMode(false);
+      setCombineSelection(null);
       setState(applyRemoteChatTabs(remote));
     },
     [],
@@ -186,11 +189,21 @@ export function useOverlayTabs(params: OverlayParams) {
     [broadcast],
   );
 
-  const removeTab = useCallback((_id: string) => {
-    /* channel removal stays in chat Settings → Channels for now */
-  }, []);
+  const removeTab = useCallback(
+    (id: string) => {
+      if (!workspaceId) return;
+      void removeOverlayTabAndSync(params.ws, workspaceId, id, (next) => {
+        setState(next);
+        broadcast(next);
+        setSettingsTick((t) => t + 1);
+      });
+    },
+    [broadcast, workspaceId, params.ws],
+  );
 
   const openAdd = useCallback(() => {
+    setCombineMode(false);
+    setCombineSelection(null);
     setAddPanelOpen(true);
   }, []);
 
@@ -199,6 +212,8 @@ export function useOverlayTabs(params: OverlayParams) {
   }, []);
 
   const refreshAfterAdd = useCallback(() => {
+    setCombineMode(false);
+    setCombineSelection(null);
     const s = loadChatSettingsFromStorage();
     if (s.channels.length > 0) syncChatTabsFromSettings(s.profiles, s.channels);
     refresh();

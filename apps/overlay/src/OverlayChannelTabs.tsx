@@ -1,6 +1,6 @@
 import {
   canCombineTabs,
-  streamerTabCount,
+  primaryHandleForTab,
   type ChatTab,
 } from "@omnichat/chat-tabs";
 import { platformIconSrc } from "./params";
@@ -20,22 +20,26 @@ type Props = {
 
 function tabPlatforms(tab: ChatTab): string[] {
   if (tab.isAll) return [];
-  const order = ["twitch", "kick", "youtube", "x"];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const p of order) {
-    if (tab.handles.some((h) => h.platform === p) && !seen.has(p)) {
-      seen.add(p);
-      out.push(p);
+  if (tab.isCombined) {
+    const order = ["twitch", "kick", "youtube", "x"];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const p of order) {
+      if (tab.handles.some((h) => h.platform === p) && !seen.has(p)) {
+        seen.add(p);
+        out.push(p);
+      }
     }
-  }
-  for (const h of tab.handles) {
-    if (!seen.has(h.platform)) {
-      seen.add(h.platform);
-      out.push(h.platform);
+    for (const h of tab.handles) {
+      if (!seen.has(h.platform)) {
+        seen.add(h.platform);
+        out.push(h.platform);
+      }
     }
+    return out;
   }
-  return out;
+  const primary = primaryHandleForTab(tab);
+  return primary ? [primary.platform] : [];
 }
 
 function ChannelTabLabel({ tab }: { tab: ChatTab }) {
@@ -67,7 +71,8 @@ export function OverlayChannelTabs({
   onSeparateTab,
   onOpenAdd,
 }: Props) {
-  const showCombineButton = streamerTabCount(allTabs) >= 2;
+  const combinableTabCount = tabs.filter((t) => !t.isAll && !t.isCombined).length;
+  const showCombineButton = combinableTabCount >= 2;
 
   return (
     <nav className="overlay-tab-bar" aria-label="Chat channels">
