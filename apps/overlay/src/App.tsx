@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ChatMessage, HubEvent, Platform, StreamAlertEvent } from "@omnichat/chat-types";
+import type { ChatMessage, HubEvent, Platform, PinnedMessageEvent, StreamAlertEvent } from "@omnichat/chat-types";
 import { messageMatchesChatTab } from "@omnichat/chat-tabs";
 import { OverlayAddChannels } from "./OverlayAddChannels";
 import { OverlayChannelTabs } from "./OverlayChannelTabs";
 import { MessageBody } from "./MessageBody";
+import { OverlayPinnedBar } from "./OverlayPinnedBar";
 import { OverlayStreamAlert } from "./OverlayStreamAlert";
 import { platformIconSrc, readOverlayParams } from "./params";
 import { overlayBackground } from "./theme";
@@ -57,8 +58,27 @@ function messageMatchesOverlayTab(
   );
 }
 
+function pinnedMatchesTab(
+  pin: PinnedMessageEvent,
+  tab: ReturnType<typeof useOverlayTabs>["resolvedActiveTab"],
+  handles: ReturnType<typeof useOverlayTabs>["feedFilterHandles"],
+): boolean {
+  const channelId = (pin.channelId ?? "").replace(/^#/, "").replace(/^@/, "").toLowerCase();
+  if (!channelId) return false;
+  return messageMatchesChatTab(
+    {
+      channelId,
+      login: channelId,
+      platform: pin.platform,
+    },
+    tab,
+    handles,
+  );
+}
+
 export function App() {
   const [items, setItems] = useState<OverlayItem[]>([]);
+  const [pinned, setPinned] = useState<Record<string, PinnedMessageEvent>>({});
   const [wsOpen, setWsOpen] = useState(false);
   const emoteMap = useOverlayEmotes(params.ws, workspaceId);
   const {
@@ -114,6 +134,21 @@ export function App() {
         applyRemote(data.state, data.channels);
         return;
       }
+      if (data.type === "pinned" && data.pinned) {
+        const pin = data.pinned;
+        const key = `${pin.platform}:${pin.channelId ?? ""}`;
+        setPinned((prev) => ({ ...prev, [key]: pin }));
+        return;
+      }
+      if (data.type === "pinned_clear") {
+        const key = `${data.platform}:${data.channelId ?? ""}`;
+        setPinned((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+        return;
+      }
       if (data.type === "message") {
         setItems((prev) => [
           ...prev.slice(-99),
@@ -133,6 +168,14 @@ export function App() {
       ws.close();
     };
   }, [applyRemote]);
+
+  const visiblePinned = useMemo(
+    () =>
+      Object.values(pinned).filter((pin) =>
+        pinnedMatchesTab(pin, resolvedActiveTab, feedFilterHandles),
+      ),
+    [pinned, resolvedActiveTab, feedFilterHandles],
+  );
 
   const visibleItems = useMemo(
     () =>
@@ -190,6 +233,12 @@ export function App() {
           onAdded={refreshAfterAdd}
         />
       ) : null}
+      <OverlayPinnedBar
+        pinned={visiblePinned}
+        emoteMap={emoteMap}
+        emoteSize={params.emoteSize}
+        showPlatformIcon={params.platformIcons}
+      />
       <div className="overlay-feed" ref={feedRef}>
         <div className="overlay-feed-inner">
           <div className="overlay-feed-spacer" aria-hidden />

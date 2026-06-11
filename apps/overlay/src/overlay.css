@@ -20,6 +20,38 @@ body,
   overflow: hidden;
 }
 
+.overlay-pinned-bar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  background: rgba(212, 160, 23, 0.12);
+  border: 1px solid rgba(212, 160, 23, 0.35);
+  border-radius: 4px;
+}
+
+.overlay-pinned-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.overlay-pinned-icon {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.overlay-pinned-text {
+  color: #f4f4f5;
+  min-width: 0;
+  flex: 1;
+}
+
 .overlay-feed {
   flex: 1;
   min-height: 0;
