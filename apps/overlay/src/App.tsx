@@ -1,35 +1,75 @@
-import { useEffect, useState } from "react";
-import type { ChatMessage, HubEvent } from "@omnichat/chat-types";
-const room = new URLSearchParams(location.search).get("room") ?? "room:demo:public";
-const apiWs = (new URLSearchParams(location.search).get("ws") ?? "ws://localhost:8787").replace(/\/$/, "");
+import { useEffect, useMemo, useState } from "react";
+import type { ChatMessage, HubEvent, Platform } from "@omnichat/chat-types";
+import { MessageBody } from "./MessageBody";
+import { platformIconSrc, readOverlayParams } from "./params";
+
+const params = readOverlayParams();
+
 export function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [filter, setFilter] = useState({ twitch: true, kick: true, x: true });
+
   useEffect(() => {
-    const ws = new WebSocket(apiWs + "?room=" + encodeURIComponent(room));
-    ws.onmessage = (ev) => { const d = JSON.parse(ev.data) as HubEvent; if (d.type === "message") setMessages((m) => [...m.slice(-99), d.message]); };
+    const ws = new WebSocket(`${params.ws}?room=${encodeURIComponent(params.room)}`);
+    ws.onmessage = (ev) => {
+      const data = JSON.parse(ev.data as string) as HubEvent;
+      if (data.type !== "message") return;
+      setMessages((prev) => [...prev.slice(-99), data.message]);
+    };
     return () => ws.close();
   }, []);
-  const visible = messages.filter((m) => filter[m.platform]);
-  const badge: Record<string, string> = { twitch: "#9146FF", kick: "#53FC18", x: "#e7e7e7" };
+
+  const rootStyle = useMemo(
+    () =>
+      ({
+        fontSize: `${params.fontSize}px`,
+        ["--overlay-emote-size" as string]: `${params.emoteSize}px`,
+        background:
+          params.bgTransparency >= 100
+            ? "transparent"
+            : `rgba(0, 0, 0, ${Math.max(0, Math.min(1, 1 - params.bgTransparency / 100))})`,
+      }) as React.CSSProperties,
+    [],
+  );
+
   return (
-    <div style={{ fontFamily: "system-ui", color: "#fff", textShadow: "0 1px 2px #000", padding: 8, background: "transparent" }}>
-      {import.meta.env.DEV ? (
-        <div style={{ marginBottom: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {(["twitch", "kick", "x"] as const).map((p) => (
-            <label key={p} style={{ fontSize: 12 }}>
-              <input type="checkbox" checked={filter[p]} onChange={() => setFilter((f) => ({ ...f, [p]: !f[p] }))} />{" "}
-              <span style={{ color: badge[p] }}>{p}</span>
-            </label>
-          ))}
-        </div>
-      ) : null}
-      {visible.map((m) => (
-        <div key={m.id} style={{ marginBottom: 4 }}>
-          <span style={{ color: badge[m.platform], fontSize: 11, marginRight: 6 }}>{m.platform}</span>
-          <strong>{m.author.displayName}</strong>: {m.text}
-        </div>
+    <div className="overlay-root" style={rootStyle}>
+      {messages.map((m) => (
+        <OverlayMessage key={m.id} message={m} />
       ))}
+    </div>
+  );
+}
+
+function OverlayMessage({ message }: { message: ChatMessage }) {
+  const platform = message.platform as Platform;
+  return (
+    <div className="overlay-msg">
+      {params.platformIcons ? (
+        <img
+          className="overlay-platform-icon"
+          src={platformIconSrc(platform)}
+          alt={platform}
+          title={platform}
+        />
+      ) : null}
+      <p style={{ margin: 0, minWidth: 0, flex: 1 }}>
+        {(message.badges ?? []).map((badge, i) => (
+          <img
+            key={`${badge.url}-${i}`}
+            className="overlay-badge"
+            src={badge.url}
+            alt={badge.title ?? ""}
+            title={badge.title}
+          />
+        ))}
+        <span className="overlay-username" style={{ color: message.author.color ?? "#e4e4e7" }}>
+          {message.author.displayName}
+        </span>
+        <span className="overlay-text">: </span>
+        <span className="overlay-text">
+          <MessageBody text={message.text} emotes={message.emotes ?? []} emoteSize={params.emoteSize} />
+        </span>
+      </p>
     </div>
   );
 }

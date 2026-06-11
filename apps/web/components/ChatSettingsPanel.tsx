@@ -348,9 +348,19 @@ export function ChatSettingsPanel({
       (process.env.NODE_ENV === "production"
         ? "https://omnichat.wtf/overlay"
         : "http://localhost:5173");
-    const ws = API_URL.replace(/^http/, "ws");
-    const token = overlayToken ? `&t=${overlayToken}` : "";
-    return `${base.replace(/\/$/, "")}?room=${encodeURIComponent(`room:${workspaceId}`)}&ws=${encodeURIComponent(ws)}${token}`;
+    const ws = API_URL.replace(/^https:\/\//, "wss://").replace(/^http:\/\//, "ws://");
+    const o = settings.overlay;
+    const a = settings.appearance;
+    const qs = new URLSearchParams({
+      room: `room:${workspaceId}`,
+      ws,
+      fontSize: String(o.fontSize),
+      emoteSize: String(a.emoteSize),
+      platformIcons: o.platformIcons ? "1" : "0",
+      bgTransparency: String(o.bgTransparency),
+    });
+    if (overlayToken) qs.set("t", overlayToken);
+    return `${base.replace(/\/$/, "")}?${qs.toString()}`;
   }
 
   async function copyOverlay() {
