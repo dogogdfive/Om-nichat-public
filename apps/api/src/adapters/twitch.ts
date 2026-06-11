@@ -283,6 +283,36 @@ function workspaceWatchesTwitchChannel(
   return false;
 }
 
+function parseTwitchIrcEmotes(
+  tags: ChatUserstate,
+  message: string,
+): ChatMessage["emotes"] {
+  const raw = tags.emotes;
+  if (!raw || typeof raw !== "object") return [];
+
+  const out: ChatMessage["emotes"] = [];
+  for (const [emoteId, ranges] of Object.entries(raw)) {
+    if (!Array.isArray(ranges)) continue;
+    for (const range of ranges) {
+      const [startStr, endStr] = String(range).split("-");
+      const start = Number.parseInt(startStr, 10);
+      const endInclusive = Number.parseInt(endStr, 10);
+      if (!Number.isFinite(start) || !Number.isFinite(endInclusive)) continue;
+      const end = endInclusive + 1;
+      const name = message.slice(start, end);
+      if (!name) continue;
+      out.push({
+        id: emoteId,
+        name,
+        url: `https://static-cdn.jtvnw.net/emoticons/v2/${emoteId}/default/dark/2.0`,
+        start,
+        end,
+      });
+    }
+  }
+  return out.sort((a, b) => a.start - b.start);
+}
+
 function toChatMessage(tags: ChatUserstate, message: string, channelLogin: string): ChatMessage {
   const id = tags.id ?? `${Date.now()}-${tags["user-id"] ?? "anon"}`;
   const rawBadges = tags.badges as string | Record<string, string> | undefined;
@@ -302,7 +332,7 @@ function toChatMessage(tags: ChatUserstate, message: string, channelLogin: strin
       color: tags.color,
     },
     text: message,
-    emotes: [],
+    emotes: parseTwitchIrcEmotes(tags, message),
     badges,
     timestamp: new Date().toISOString(),
   };

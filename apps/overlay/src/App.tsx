@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChatMessage, HubEvent, Platform, StreamAlertEvent } from "@omnichat/chat-types";
 import { messageMatchesChatTab } from "@omnichat/chat-tabs";
 import { OverlayAddChannels } from "./OverlayAddChannels";
@@ -7,6 +7,7 @@ import { MessageBody } from "./MessageBody";
 import { OverlayStreamAlert } from "./OverlayStreamAlert";
 import { platformIconSrc, readOverlayParams } from "./params";
 import { overlayBackground } from "./theme";
+import { useOverlayAutoScroll } from "./useOverlayAutoScroll";
 import { useOverlayEmotes } from "./useOverlayEmotes";
 import { useOverlayTabs } from "./useOverlayTabs";
 import { workspaceIdFromRoom } from "./sync-tabs";
@@ -59,8 +60,6 @@ function messageMatchesOverlayTab(
 export function App() {
   const [items, setItems] = useState<OverlayItem[]>([]);
   const [wsOpen, setWsOpen] = useState(false);
-  const feedRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
   const emoteMap = useOverlayEmotes(params.ws, workspaceId);
   const {
     applyRemote,
@@ -146,14 +145,7 @@ export function App() {
   );
 
   const scrollKey = visibleItems.map((i) => i.id).join("|");
-
-  useLayoutEffect(() => {
-    const el = feedRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
-    bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [scrollKey, activeTabId]);
+  const { feedRef } = useOverlayAutoScroll(scrollKey, activeTabId, emoteMap.size);
 
   const emptyHint = useMemo(() => {
     if (visibleItems.length > 0) return null;
@@ -210,7 +202,7 @@ export function App() {
               <OverlayMessage key={item.id} message={item.message} emoteMap={emoteMap} />
             ),
           )}
-          <div ref={bottomRef} className="overlay-feed-anchor" aria-hidden />
+          <div className="overlay-feed-anchor" aria-hidden />
         </div>
       </div>
     </div>

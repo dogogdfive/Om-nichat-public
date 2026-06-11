@@ -26,6 +26,17 @@ function resolveEmoteUrl(url: string): string {
 
 export function useOverlayEmotes(ws: string, workspaceId: string | null) {
   const [emotes, setEmotes] = useState<Map<string, ResolvedEmote>>(new Map());
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const bump = () => setTick((t) => t + 1);
+    window.addEventListener("focus", bump);
+    document.addEventListener("visibilitychange", bump);
+    return () => {
+      window.removeEventListener("focus", bump);
+      document.removeEventListener("visibilitychange", bump);
+    };
+  }, []);
 
   useEffect(() => {
     if (!workspaceId) {
@@ -53,7 +64,13 @@ export function useOverlayEmotes(ws: string, workspaceId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [ws, workspaceId]);
+  }, [ws, workspaceId, tick]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    const id = window.setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, [workspaceId]);
 
   return emotes;
 }
