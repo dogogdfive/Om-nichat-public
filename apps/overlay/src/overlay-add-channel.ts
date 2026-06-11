@@ -1,6 +1,5 @@
 import {
   requestActivateProfileTab,
-  syncChatTabsFromSettings,
   type ChatTabHandle,
 } from "@omnichat/chat-tabs";
 import { overlayFetch } from "./overlay-api";
@@ -10,6 +9,7 @@ import {
   type SettingsSnapshot,
 } from "./overlay-settings";
 import { syncChatTabsToServer } from "./sync-tabs";
+import { reconcileOverlayTabState } from "./overlay-sync-settings";
 import {
   groupChannelsByPlatform,
   INGEST_CHANNEL_PLATFORMS,
@@ -113,7 +113,7 @@ export async function addOverlayChannel(
   const profiles = [...settings.profiles, profile];
   saveOverlaySettings({ profiles, channels });
   requestActivateProfileTab(profile.id);
-  const tabState = syncChatTabsFromSettings(profiles, channels);
+  const tabState = reconcileOverlayTabState(profile.id);
 
   await syncChatTabsToServer(ws, workspaceId, tabState);
   await syncIngest(ws, workspaceId, channels).catch(() => undefined);

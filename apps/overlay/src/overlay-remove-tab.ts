@@ -13,13 +13,31 @@ import {
 } from "./overlay-settings";
 import { syncIngest } from "./overlay-add-channel";
 
-export function removeOverlayTab(
-  id: string,
-): { tabState: ChatTabsState; settingsChanged: boolean } {
+function findTab(idOrProfileId: string) {
   const current = loadChatTabs();
-  const tab = current.tabs.find((t) => t.id === id);
+  const tab =
+    current.tabs.find((t) => t.id === idOrProfileId) ??
+    current.tabs.find(
+      (t) => !t.isAll && !t.isCombined && (t.profileId ?? t.id) === idOrProfileId,
+    );
+  return { current, tab };
+}
+
+export function removeOverlayTab(
+  idOrProfileId: string,
+): { tabState: ChatTabsState; settingsChanged: boolean } {
+  const { current, tab } = findTab(idOrProfileId);
   if (!tab || tab.isAll) {
-    return { tabState: current, settingsChanged: false };
+    const settings = loadOverlaySettings();
+    const profile = settings.profiles.find((p) => p.id === idOrProfileId);
+    if (!profile) {
+      return { tabState: current, settingsChanged: false };
+    }
+    const nextSettings = removeProfileFromSettings(settings, profile.id);
+    saveOverlaySettings(nextSettings);
+    dismissChatTabLabel(profile.label);
+    const tabState = syncChatTabsFromSettings(nextSettings.profiles, nextSettings.channels);
+    return { tabState, settingsChanged: true };
   }
 
   let settings = loadOverlaySettings();
@@ -48,17 +66,17 @@ export function removeOverlayTab(
 
   saveOverlaySettings(removed);
   dismissChatTabLabel(tab.label);
-  const tabState = removeChatTabById(id);
+  const tabState = removeChatTabById(tab.id);
   return { tabState, settingsChanged: true };
 }
 
 export async function removeOverlayTabAndSync(
   ws: string,
   workspaceId: string,
-  id: string,
+  idOrProfileId: string,
   syncToServer: (state: ChatTabsState) => void,
 ): Promise<void> {
-  const { tabState, settingsChanged } = removeOverlayTab(id);
+  const { tabState, settingsChanged } = removeOverlayTab(idOrProfileId);
   syncToServer(tabState);
   if (settingsChanged) {
     await syncIngest(ws, workspaceId, loadOverlaySettings().channels).catch(() => undefined);

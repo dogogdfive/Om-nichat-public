@@ -71,6 +71,7 @@ export function App() {
     combineMode,
     combineSelection,
     addPanelOpen,
+    streamerProfiles,
     selectTab,
     separateTab,
     removeTab,
@@ -173,6 +174,7 @@ export function App() {
           activeTabId={activeTabId}
           combineMode={combineMode}
           combineSelection={combineSelection}
+          streamerProfiles={streamerProfiles}
           onSelect={selectTab}
           onRemove={removeTab}
           onToggleCombineMode={toggleCombineMode}

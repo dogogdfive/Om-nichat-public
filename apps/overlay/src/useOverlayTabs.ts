@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   applyRemoteChatTabs,
   combineChatTabs,
@@ -8,13 +8,13 @@ import {
   resolveTabHandles,
   selectChatTab,
   separateCombinedTab,
-  syncChatTabsFromSettings,
   visibleTabs,
   type ChatTab,
   type ChatTabsState,
 } from "@omnichat/chat-tabs";
 import type { OverlayParams } from "./params";
 import { removeOverlayTabAndSync } from "./overlay-remove-tab";
+import { reconcileOverlayTabState } from "./overlay-sync-settings";
 import { SETTINGS_CHANGED } from "./overlay-settings";
 import { markRemoteChatTabsSync, syncChatTabsToServer, workspaceIdFromRoom } from "./sync-tabs";
 
@@ -23,15 +23,22 @@ const CHAT_SETTINGS_KEY = "omnichat-chat-settings";
 
 export function useOverlayTabs(params: OverlayParams) {
   const workspaceId = workspaceIdFromRoom(params.room);
+  const localActiveTabRef = useRef<string | null>(null);
 
   const [state, setState] = useState<ChatTabsState>(() => {
-    const fromUrl = decodeTabsBootstrap(params.tabsBootstrap);
-    const base = fromUrl ?? loadChatTabs();
-    if (params.tabId && base.tabs.some((t) => t.id === params.tabId)) {
-      return { ...base, activeTabId: params.tabId };
-    }
-    return base;
+    const bootstrap = decodeTabsBootstrap(params.tabsBootstrap);
+    const preferred =
+      params.tabId && (bootstrap?.tabs ?? loadChatTabs().tabs).some((t) => t.id === params.tabId)
+        ? params.tabId
+        : undefined;
+    return reconcileOverlayTabState(preferred, {
+      extraTabs: bootstrap?.tabs,
+      remoteActiveTabId: bootstrap?.activeTabId,
+    });
   });
+
+  const activeTabIdRef = useRef(state.activeTabId);
+  activeTabIdRef.current = state.activeTabId;
   const [combineMode, setCombineMode] = useState(false);
   const [combineSelection, setCombineSelection] = useState<string | null>(null);
   const [addPanelOpen, setAddPanelOpen] = useState(false);
@@ -49,13 +56,11 @@ export function useOverlayTabs(params: OverlayParams) {
 
   useEffect(() => {
     const bootstrap = decodeTabsBootstrap(params.tabsBootstrap);
-    if (bootstrap) applyRemoteChatTabs(bootstrap);
-    else {
-      const s = loadChatSettingsFromStorage();
-      if (s.channels.length > 0) syncChatTabsFromSettings(s.profiles, s.channels);
-      refresh();
-    }
-  }, [params.tabsBootstrap, refresh]);
+    const preferred = params.tabId ?? bootstrap?.activeTabId;
+    const next = reconcileOverlayTabState(preferred, { extraTabs: bootstrap?.tabs });
+    setState(next);
+    applyRemoteChatTabs(next);
+  }, [params.tabsBootstrap, params.tabId]);
 
   useEffect(() => {
     window.addEventListener(CHAT_TABS_CHANGED, refresh);
@@ -74,22 +79,19 @@ export function useOverlayTabs(params: OverlayParams) {
   const applyRemote = useCallback(
     (remote: ChatTabsState, channels?: { platform: string; handle: string; profileId?: string }[]) => {
       markRemoteChatTabsSync(remote.syncId);
-      if (channels?.length) {
-        try {
-          const raw = localStorage.getItem(CHAT_SETTINGS_KEY);
-          const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-          localStorage.setItem(
-            CHAT_SETTINGS_KEY,
-            JSON.stringify({ ...parsed, channels }),
-          );
-          setSettingsTick((t) => t + 1);
-        } catch {
-          /* ignore */
-        }
-      }
       setCombineMode(false);
       setCombineSelection(null);
-      setState(applyRemoteChatTabs(remote));
+
+      const preferred = localActiveTabRef.current ?? activeTabIdRef.current;
+      const next = reconcileOverlayTabState(preferred, {
+        remoteChannels: channels,
+        remoteTabs: remote.tabs,
+        remoteActiveTabId: remote.activeTabId,
+      });
+      localActiveTabRef.current = null;
+      applyRemoteChatTabs(next);
+      setState(next);
+      setSettingsTick((t) => t + 1);
     },
     [],
   );
@@ -153,6 +155,7 @@ export function useOverlayTabs(params: OverlayParams) {
       if (!tab || tab.hidden) return;
 
       if (!combineMode) {
+        localActiveTabRef.current = id;
         const next = selectChatTab(id);
         setState(next);
         broadcast(next);
@@ -171,6 +174,7 @@ export function useOverlayTabs(params: OverlayParams) {
         return;
       }
 
+      localActiveTabRef.current = null;
       const next = combineChatTabs(combineSelection, id);
       setState(next);
       setCombineMode(false);
@@ -190,9 +194,9 @@ export function useOverlayTabs(params: OverlayParams) {
   );
 
   const removeTab = useCallback(
-    (id: string) => {
+    (idOrProfileId: string) => {
       if (!workspaceId) return;
-      void removeOverlayTabAndSync(params.ws, workspaceId, id, (next) => {
+      void removeOverlayTabAndSync(params.ws, workspaceId, idOrProfileId, (next) => {
         setState(next);
         broadcast(next);
         setSettingsTick((t) => t + 1);
@@ -214,11 +218,23 @@ export function useOverlayTabs(params: OverlayParams) {
   const refreshAfterAdd = useCallback(() => {
     setCombineMode(false);
     setCombineSelection(null);
-    const s = loadChatSettingsFromStorage();
-    if (s.channels.length > 0) syncChatTabsFromSettings(s.profiles, s.channels);
-    refresh();
+    const preferred = loadChatTabs().activeTabId;
+    localActiveTabRef.current = preferred;
+    const next = reconcileOverlayTabState(preferred);
+    setState(next);
+    broadcast(next);
     setSettingsTick((t) => t + 1);
-  }, [refresh]);
+  }, [broadcast]);
+
+  const streamerProfiles = useMemo(
+    () =>
+      settings.profiles.map((p) => ({
+        id: p.id,
+        label: p.label,
+        tabId: state.tabs.find((t) => (t.profileId ?? t.id) === p.id && !t.hidden)?.id,
+      })),
+    [settings.profiles, state.tabs],
+  );
 
   return {
     barTabs,
@@ -229,6 +245,7 @@ export function useOverlayTabs(params: OverlayParams) {
     combineMode,
     combineSelection,
     addPanelOpen,
+    streamerProfiles,
     applyRemote,
     selectTab,
     separateTab,

@@ -1,4 +1,5 @@
 import {
+  ALL_CHAT_TAB_ID,
   canCombineTabs,
   primaryHandleForTab,
   type ChatTab,
@@ -11,6 +12,7 @@ type Props = {
   activeTabId: string;
   combineMode: boolean;
   combineSelection: string | null;
+  streamerProfiles: { id: string; label: string; tabId?: string }[];
   onSelect: (id: string) => void;
   onRemove: (id: string) => void;
   onToggleCombineMode: () => void;
@@ -65,6 +67,7 @@ export function OverlayChannelTabs({
   activeTabId,
   combineMode,
   combineSelection,
+  streamerProfiles,
   onSelect,
   onRemove,
   onToggleCombineMode,
@@ -73,6 +76,7 @@ export function OverlayChannelTabs({
 }: Props) {
   const combinableTabCount = tabs.filter((t) => !t.isAll && !t.isCombined).length;
   const showCombineButton = combinableTabCount >= 2;
+  const onAllTab = activeTabId === ALL_CHAT_TAB_ID;
 
   return (
     <nav className="overlay-tab-bar" aria-label="Chat channels">
@@ -162,6 +166,31 @@ export function OverlayChannelTabs({
           +chats
         </button>
       </div>
+      {onAllTab && streamerProfiles.length > 0 ? (
+        <div className="overlay-all-streamers" aria-label="Streamers on All tab">
+          {streamerProfiles.map((p) => (
+            <span key={p.id} className="overlay-all-streamer-chip">
+              <button
+                type="button"
+                className="overlay-all-streamer-open"
+                onClick={() => {
+                  if (p.tabId) onSelect(p.tabId);
+                }}
+              >
+                {p.label}
+              </button>
+              <button
+                type="button"
+                className="overlay-all-streamer-remove"
+                aria-label={`Remove ${p.label}`}
+                onClick={() => onRemove(p.tabId ?? p.id)}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
     </nav>
   );
 }

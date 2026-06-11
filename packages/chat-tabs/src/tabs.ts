@@ -23,6 +23,60 @@ function normalizeLabel(label: string): string {
   return label.replace(/^@/, "").toLowerCase();
 }
 
+/** Ensure every channel row with profileId has a matching profile (fixes orphan channels). */
+export function repairSettingsProfiles(
+  profiles: StreamerProfile[],
+  channels: ChannelRow[],
+): StreamerProfile[] {
+  const byId = new Map(profiles.map((p) => [p.id, p]));
+  const out = [...profiles];
+  for (const ch of channels) {
+    if (!ch.profileId || byId.has(ch.profileId)) continue;
+    const profile = { id: ch.profileId, label: ch.handle.replace(/^@/, "") };
+    byId.set(ch.profileId, profile);
+    out.push(profile);
+  }
+  return out;
+}
+
+/** Back-fill profiles/channels from existing streamer tabs (OBS URL bootstrap, etc.). */
+export function hydrateSettingsFromTabs(
+  tabs: ChatTab[],
+  profiles: StreamerProfile[],
+  channels: ChannelRow[],
+): { profiles: StreamerProfile[]; channels: ChannelRow[] } {
+  let nextProfiles = [...profiles];
+  let nextChannels = [...channels];
+  const profileById = new Map(nextProfiles.map((p) => [p.id, p]));
+
+  for (const tab of tabs) {
+    if (tab.isAll || tab.isCombined || tab.hidden) continue;
+    const profileId = tab.profileId ?? tab.id;
+    if (!profileById.has(profileId)) {
+      const profile = { id: profileId, label: tab.label };
+      nextProfiles.push(profile);
+      profileById.set(profileId, profile);
+    }
+    for (const h of tab.handles) {
+      const handle = h.handle.replace(/^@/, "");
+      const exists = nextChannels.some(
+        (c) =>
+          c.profileId === profileId &&
+          c.platform.toLowerCase() === h.platform.toLowerCase() &&
+          normalizeLabel(c.handle) === normalizeLabel(handle),
+      );
+      if (!exists) {
+        nextChannels.push({ platform: h.platform, handle, profileId });
+      }
+    }
+  }
+
+  return {
+    profiles: repairSettingsProfiles(nextProfiles, nextChannels),
+    channels: nextChannels,
+  };
+}
+
 function loadDismissedTabLabels(): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
@@ -295,8 +349,9 @@ export function syncChatTabsFromSettings(
   channels: ChannelRow[],
 ): ChatTabsState {
   const current = loadChatTabs();
+  const repairedProfiles = repairSettingsProfiles(profiles, channels);
   const allTab = current.tabs.find((t) => t.isAll) ?? DEFAULT_CHAT_TABS.tabs[0]!;
-  const grouped = groupChannelsForTabs(profiles, channels);
+  const grouped = groupChannelsForTabs(repairedProfiles, channels);
 
   for (const [, { label }] of grouped) {
     undismissChatTabLabel(label);
@@ -342,7 +397,19 @@ export function syncChatTabsFromSettings(
 
   let activeTabId = current.activeTabId;
   if (!synced.some((t) => t.id === activeTabId)) {
-    activeTabId = ALL_CHAT_TAB_ID;
+    const prev = current.tabs.find((t) => t.id === activeTabId);
+    const migrated =
+      prev &&
+      synced.find(
+        (t) =>
+          !t.isAll &&
+          !t.hidden &&
+          (t.profileId === prev.profileId ||
+            t.id === prev.profileId ||
+            (prev.profileId != null && t.profileId === prev.id) ||
+            normalizeLabel(t.label) === normalizeLabel(prev.label)),
+      );
+    activeTabId = migrated?.id ?? ALL_CHAT_TAB_ID;
   }
 
   if (typeof window !== "undefined") {
