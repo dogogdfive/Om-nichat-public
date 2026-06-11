@@ -190,6 +190,7 @@ export function App() {
       ) : null}
       <div className="overlay-feed" ref={feedRef}>
         <div className="overlay-feed-inner">
+          <div className="overlay-feed-spacer" aria-hidden />
           {emptyHint ? <p className="overlay-empty-hint">{emptyHint}</p> : null}
           {visibleItems.map((item) =>
             item.kind === "alert" ? (

@@ -30,6 +30,11 @@ body,
 .overlay-feed-inner {
   display: flex;
   flex-direction: column;
+  min-height: 100%;
+}
+
+.overlay-feed-spacer {
+  flex: 1 0 auto;
 }
 
 .overlay-feed-anchor {
