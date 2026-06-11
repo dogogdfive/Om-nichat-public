@@ -18,6 +18,7 @@ import { markRemoteChatTabsSync, syncChatTabsToServer, workspaceIdFromRoom } fro
 
 const CHAT_TABS_CHANGED = "omnichat-chat-tabs-changed";
 const CHAT_SETTINGS_KEY = "omnichat-chat-settings";
+const SETTINGS_CHANGED = "omnichat-chat-settings-changed";
 
 export function useOverlayTabs(params: OverlayParams) {
   const workspaceId = workspaceIdFromRoom(params.room);
@@ -32,7 +33,7 @@ export function useOverlayTabs(params: OverlayParams) {
   });
   const [combineMode, setCombineMode] = useState(false);
   const [combineSelection, setCombineSelection] = useState<string | null>(null);
-  const [addHint, setAddHint] = useState<string | null>(null);
+  const [addPanelOpen, setAddPanelOpen] = useState(false);
 
   const [settingsTick, setSettingsTick] = useState(0);
 
@@ -57,12 +58,14 @@ export function useOverlayTabs(params: OverlayParams) {
 
   useEffect(() => {
     window.addEventListener(CHAT_TABS_CHANGED, refresh);
+    window.addEventListener(SETTINGS_CHANGED, refresh);
     const onStorage = (e: StorageEvent) => {
       if (e.key === "omnichat-chat-tabs" || e.key === CHAT_SETTINGS_KEY) refresh();
     };
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(CHAT_TABS_CHANGED, refresh);
+      window.removeEventListener(SETTINGS_CHANGED, refresh);
       window.removeEventListener("storage", onStorage);
     };
   }, [refresh]);
@@ -183,23 +186,24 @@ export function useOverlayTabs(params: OverlayParams) {
     [broadcast],
   );
 
-  const removeTab = useCallback(
-    (id: string) => {
-      setAddHint("Remove streamers in OMnichat chat → Settings → Channels");
-      setTimeout(() => setAddHint(null), 4000);
-    },
-    [],
-  );
+  const removeTab = useCallback((_id: string) => {
+    /* channel removal stays in chat Settings → Channels for now */
+  }, []);
 
   const openAdd = useCallback(() => {
-    if (workspaceId) {
-      void syncChatTabsToServer(params.ws, workspaceId, state, {
-        overlayAction: "open_channels_settings",
-      });
-    }
-    setAddHint("Add streamers in OMnichat chat → Settings → Channels");
-    setTimeout(() => setAddHint(null), 5000);
-  }, [workspaceId, params.ws, state]);
+    setAddPanelOpen(true);
+  }, []);
+
+  const closeAdd = useCallback(() => {
+    setAddPanelOpen(false);
+  }, []);
+
+  const refreshAfterAdd = useCallback(() => {
+    const s = loadChatSettingsFromStorage();
+    if (s.channels.length > 0) syncChatTabsFromSettings(s.profiles, s.channels);
+    refresh();
+    setSettingsTick((t) => t + 1);
+  }, [refresh]);
 
   return {
     barTabs,
@@ -209,12 +213,14 @@ export function useOverlayTabs(params: OverlayParams) {
     feedFilterHandles,
     combineMode,
     combineSelection,
-    addHint,
+    addPanelOpen,
     applyRemote,
     selectTab,
     separateTab,
     removeTab,
     openAdd,
+    closeAdd,
+    refreshAfterAdd,
     toggleCombineMode: () => {
       setCombineMode((v) => !v);
       setCombineSelection(null);

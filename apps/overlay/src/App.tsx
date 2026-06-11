@@ -1,14 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage, HubEvent, Platform, StreamAlertEvent } from "@omnichat/chat-types";
 import { messageMatchesChatTab } from "@omnichat/chat-tabs";
+import { OverlayAddChannels } from "./OverlayAddChannels";
 import { OverlayChannelTabs } from "./OverlayChannelTabs";
 import { MessageBody } from "./MessageBody";
 import { OverlayStreamAlert } from "./OverlayStreamAlert";
 import { platformIconSrc, readOverlayParams } from "./params";
 import { overlayBackground } from "./theme";
+import { useOverlayEmotes } from "./useOverlayEmotes";
 import { useOverlayTabs } from "./useOverlayTabs";
+import { workspaceIdFromRoom } from "./sync-tabs";
 
 const params = readOverlayParams();
+const workspaceId = workspaceIdFromRoom(params.room);
 
 type OverlayItem =
   | { kind: "message"; id: string; message: ChatMessage }
@@ -56,6 +60,8 @@ export function App() {
   const [items, setItems] = useState<OverlayItem[]>([]);
   const [wsOpen, setWsOpen] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const emoteMap = useOverlayEmotes(params.ws, workspaceId);
   const {
     applyRemote,
     barTabs,
@@ -65,11 +71,13 @@ export function App() {
     feedFilterHandles,
     combineMode,
     combineSelection,
-    addHint,
+    addPanelOpen,
     selectTab,
     separateTab,
     removeTab,
     openAdd,
+    closeAdd,
+    refreshAfterAdd,
     toggleCombineMode,
   } = useOverlayTabs(params);
 
@@ -137,11 +145,15 @@ export function App() {
     [items, resolvedActiveTab, feedFilterHandles],
   );
 
-  useEffect(() => {
+  const scrollKey = visibleItems.map((i) => i.id).join("|");
+
+  useLayoutEffect(() => {
     const el = feedRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [visibleItems.length, activeTabId]);
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+    bottomRef.current?.scrollIntoView({ block: "end" });
+  }, [scrollKey, activeTabId]);
 
   const emptyHint = useMemo(() => {
     if (visibleItems.length > 0) return null;
@@ -163,21 +175,26 @@ export function App() {
   return (
     <div className="overlay-root" style={rootStyle}>
       {params.showTabs ? (
-        <>
-          <OverlayChannelTabs
-            tabs={barTabs}
-            allTabs={allTabs}
-            activeTabId={activeTabId}
-            combineMode={combineMode}
-            combineSelection={combineSelection}
-            onSelect={selectTab}
-            onRemove={removeTab}
-            onToggleCombineMode={toggleCombineMode}
-            onSeparateTab={separateTab}
-            onOpenAdd={openAdd}
-          />
-          {addHint ? <p className="overlay-tab-hint">{addHint}</p> : null}
-        </>
+        <OverlayChannelTabs
+          tabs={barTabs}
+          allTabs={allTabs}
+          activeTabId={activeTabId}
+          combineMode={combineMode}
+          combineSelection={combineSelection}
+          onSelect={selectTab}
+          onRemove={removeTab}
+          onToggleCombineMode={toggleCombineMode}
+          onSeparateTab={separateTab}
+          onOpenAdd={openAdd}
+        />
+      ) : null}
+      {addPanelOpen && workspaceId ? (
+        <OverlayAddChannels
+          ws={params.ws}
+          workspaceId={workspaceId}
+          onClose={closeAdd}
+          onAdded={refreshAfterAdd}
+        />
       ) : null}
       <div className="overlay-feed" ref={feedRef}>
         <div className="overlay-feed-inner">
@@ -190,16 +207,23 @@ export function App() {
                 showPlatformIcon={params.platformIcons}
               />
             ) : (
-              <OverlayMessage key={item.id} message={item.message} />
+              <OverlayMessage key={item.id} message={item.message} emoteMap={emoteMap} />
             ),
           )}
+          <div ref={bottomRef} className="overlay-feed-anchor" aria-hidden />
         </div>
       </div>
     </div>
   );
 }
 
-function OverlayMessage({ message }: { message: ChatMessage }) {
+function OverlayMessage({
+  message,
+  emoteMap,
+}: {
+  message: ChatMessage;
+  emoteMap: Map<string, import("./useOverlayEmotes").ResolvedEmote>;
+}) {
   const platform = message.platform as Platform;
   return (
     <div className="overlay-msg">
@@ -226,7 +250,12 @@ function OverlayMessage({ message }: { message: ChatMessage }) {
         </span>
         <span className="overlay-text-muted">: </span>
         <span className="overlay-text">
-          <MessageBody text={message.text} emotes={message.emotes ?? []} emoteSize={params.emoteSize} />
+          <MessageBody
+            text={message.text}
+            emotes={message.emotes ?? []}
+            emoteMap={emoteMap}
+            emoteSize={params.emoteSize}
+          />
         </span>
       </p>
     </div>

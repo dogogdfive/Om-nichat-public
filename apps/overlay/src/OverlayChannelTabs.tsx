@@ -1,4 +1,5 @@
 import {
+  canCombineTabs,
   streamerTabCount,
   type ChatTab,
 } from "@omnichat/chat-tabs";
@@ -74,6 +75,15 @@ export function OverlayChannelTabs({
         {tabs.map((tab) => {
           const active = tab.id === activeTabId;
           const selectedForCombine = combineSelection === tab.id;
+          const combineTarget =
+            combineMode &&
+            combineSelection &&
+            combineSelection !== tab.id &&
+            !tab.isAll &&
+            (() => {
+              const a = allTabs.find((t) => t.id === combineSelection);
+              return a && canCombineTabs(a, tab);
+            })();
           return (
             <span
               key={tab.id}
@@ -81,6 +91,7 @@ export function OverlayChannelTabs({
                 "overlay-channel-tab-wrap",
                 active ? "overlay-channel-tab-wrap--active" : "",
                 combineMode && selectedForCombine ? "overlay-channel-tab-wrap--combine-selected" : "",
+                combineTarget ? "overlay-channel-tab-wrap--combine-target" : "",
                 tab.isCombined ? "overlay-channel-tab-wrap--combined" : "",
               ]
                 .filter(Boolean)
@@ -125,13 +136,21 @@ export function OverlayChannelTabs({
         })}
 
         {showCombineButton && (
-          <button
-            type="button"
-            className={`overlay-tab-combine${combineMode ? " overlay-tab-combine--active" : ""}`}
-            onClick={onToggleCombineMode}
-          >
-            Combine
-          </button>
+          <>
+            <button
+              type="button"
+              className={`overlay-tab-combine${combineMode ? " overlay-tab-combine--active" : ""}`}
+              aria-pressed={combineMode}
+              onClick={onToggleCombineMode}
+            >
+              Combine
+            </button>
+            {combineMode ? (
+              <span className="overlay-combine-hint">
+                {combineSelection ? "Pick another tab" : "Select first tab"}
+              </span>
+            ) : null}
+          </>
         )}
 
         <button type="button" className="overlay-tab-add" onClick={onOpenAdd}>
