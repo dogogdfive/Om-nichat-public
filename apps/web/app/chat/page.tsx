@@ -999,7 +999,11 @@ function ChatApp() {
             .join("; "),
         );
       } else if (skipped.length > 0 && (data.results?.filter((r) => r.ok).length ?? 0) === 0) {
-        setSendError(skipped.map((r) => r.error).join(" "));
+        const skippedErrors = skipped
+          .filter((r) => r.platform !== "x")
+          .map((r) => r.error)
+          .filter(Boolean);
+        if (skippedErrors.length > 0) setSendError(skippedErrors.join(" "));
       }
     } catch {
       setSendError("Failed to send message");
@@ -1190,9 +1194,6 @@ function ChatApp() {
             </button>
           </div>
         </div>
-        {sendError && (
-          <p className="text-xs text-red-400 px-2 pt-1 text-left">{sendError}</p>
-        )}
       </footer>
 
       <ChatSettingsPanel

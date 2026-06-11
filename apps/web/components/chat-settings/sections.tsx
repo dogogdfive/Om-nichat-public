@@ -987,11 +987,19 @@ export function OverlaySection({
   copied,
   onCopy,
   onReset,
+  onSendTestAlerts,
+  testAlertsState,
+  testAlertsError,
+  workspaceReady,
 }: SectionProps & {
   overlayUrl: string;
   copied: boolean;
   onCopy: () => void;
   onReset: () => void;
+  onSendTestAlerts: () => void;
+  testAlertsState: "idle" | "sending" | "done" | "error";
+  testAlertsError: string;
+  workspaceReady: boolean;
 }) {
   const o = settings.overlay;
   const setO = (p: Partial<ChatSettings["overlay"]>) => patch({ overlay: p });
@@ -1008,6 +1016,26 @@ export function OverlaySection({
             Reset
           </button>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="prochat-reset-btn"
+            disabled={!workspaceReady || testAlertsState === "sending"}
+            onClick={onSendTestAlerts}
+          >
+            {testAlertsState === "sending"
+              ? "Sending…"
+              : testAlertsState === "done"
+                ? "Test alerts sent!"
+                : "Send test alerts to live chat"}
+          </button>
+          <span className="text-xs text-zinc-500">
+            Twitch sub, bits, Kick sub, gift subs, and Kicks — visible in chat and OBS overlay.
+          </span>
+        </div>
+        {testAlertsState === "error" && testAlertsError ? (
+          <p className="text-sm text-red-400 mt-2">{testAlertsError}</p>
+        ) : null}
       </SettingCard>
 
       <SettingCard title="Appearance">
@@ -1037,6 +1065,9 @@ export function OverlaySection({
           display={`${o.bgTransparency}%`}
           onChange={(v) => setO({ bgTransparency: v })}
         />
+        <p className="text-xs text-zinc-500 -mt-2 mb-2">
+          0% matches live chat (#18181b). 100% is fully transparent for OBS.
+        </p>
         <SliderRow
           label="Message Fade Out:"
           help

@@ -104,7 +104,6 @@ export async function sendChatToPlatforms(
         channel,
         ok: false,
         skipped: true,
-        error: "X chat send is not supported yet",
       });
       continue;
     }

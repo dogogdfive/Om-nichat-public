@@ -26,6 +26,7 @@ import { createChatUserRoutes } from "./routes/chat-users.js";
 import { kickRoutes } from "./routes/kick-emotes.js";
 import { emoteRoutes } from "./routes/emotes.js";
 import { createChatSendRoutes } from "./routes/chat-send.js";
+import { createOverlayTestAlertRoutes } from "./routes/overlay-test-alerts.js";
 import { extensionRoutes } from "./routes/extension.js";
 import { createIngestRoutes } from "./routes/ingest-channels.js";
 import { createSsnIngestRoutes } from "./routes/ssn-ingest.js";
@@ -91,6 +92,7 @@ app.route("/", createChatUserRoutes(hub));
 app.route("/", kickRoutes);
 app.route("/", emoteRoutes);
 app.route("/", createChatSendRoutes(hub));
+app.route("/", createOverlayTestAlertRoutes(hub));
 app.route("/", extensionRoutes);
 app.route("/", createAuthRoutes(hub));
 

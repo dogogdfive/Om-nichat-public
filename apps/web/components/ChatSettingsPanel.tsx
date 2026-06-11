@@ -134,6 +134,8 @@ export function ChatSettingsPanel({
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [overlayToken, setOverlayToken] = useState("");
+  const [testAlertsState, setTestAlertsState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [testAlertsError, setTestAlertsError] = useState("");
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(CONNECT_ONBOARDING_KEY) === "1";
@@ -358,6 +360,7 @@ export function ChatSettingsPanel({
       emoteSize: String(a.emoteSize),
       platformIcons: o.platformIcons ? "1" : "0",
       bgTransparency: String(o.bgTransparency),
+      eventMessages: o.eventMessages ? "1" : "0",
     });
     if (overlayToken) qs.set("t", overlayToken);
     return `${base.replace(/\/$/, "")}?${qs.toString()}`;
@@ -373,6 +376,25 @@ export function ChatSettingsPanel({
 
   function resetOverlayUrl() {
     setOverlayToken(crypto.randomUUID().slice(0, 8));
+  }
+
+  async function sendTestAlerts() {
+    if (!workspaceId) return;
+    setTestAlertsState("sending");
+    setTestAlertsError("");
+    const res = await apiFetch(`/api/workspaces/${workspaceId}/overlay/test-alerts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setTestAlertsState("error");
+      setTestAlertsError(body.error ?? "Failed to send test alerts");
+      return;
+    }
+    setTestAlertsState("done");
+    setTimeout(() => setTestAlertsState("idle"), 4000);
   }
 
   if (!open) return null;
@@ -449,6 +471,10 @@ export function ChatSettingsPanel({
                 copied={copied}
                 onCopy={copyOverlay}
                 onReset={resetOverlayUrl}
+                onSendTestAlerts={sendTestAlerts}
+                testAlertsState={testAlertsState}
+                testAlertsError={testAlertsError}
+                workspaceReady={Boolean(workspaceId)}
               />
             )}
             {section === "omnibunny" && <OmnibunnySection workspaceId={workspaceId} />}

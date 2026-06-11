@@ -78,7 +78,7 @@ export const DEFAULT_SETTINGS: ChatSettings = {
   overlay: {
     font: "Roboto",
     fontSize: 18,
-    bgTransparency: 100,
+    bgTransparency: 0,
     messageFadeOut: 0,
     platformIcons: true,
     eventMessages: true,

@@ -5,6 +5,7 @@ export type OverlayParams = {
   emoteSize: number;
   platformIcons: boolean;
   bgTransparency: number;
+  eventMessages: boolean;
 };
 
 function parseBool(value: string | null, fallback: boolean): boolean {
@@ -31,7 +32,8 @@ export function readOverlayParams(search = location.search): OverlayParams {
     fontSize: parseIntParam(params.get("fontSize"), 18),
     emoteSize: parseIntParam(params.get("emoteSize"), 24),
     platformIcons: parseBool(params.get("platformIcons"), true),
-    bgTransparency: parseIntParam(params.get("bgTransparency"), 100),
+    bgTransparency: parseIntParam(params.get("bgTransparency"), 0),
+    eventMessages: parseBool(params.get("eventMessages"), true),
   };
 }
 

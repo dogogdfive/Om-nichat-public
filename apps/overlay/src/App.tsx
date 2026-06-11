@@ -1,19 +1,36 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ChatMessage, HubEvent, Platform } from "@omnichat/chat-types";
+import type { ChatMessage, HubEvent, Platform, StreamAlertEvent } from "@omnichat/chat-types";
 import { MessageBody } from "./MessageBody";
+import { OverlayStreamAlert } from "./OverlayStreamAlert";
 import { platformIconSrc, readOverlayParams } from "./params";
+import { overlayBackground } from "./theme";
 
 const params = readOverlayParams();
 
+type OverlayItem =
+  | { kind: "message"; id: string; message: ChatMessage }
+  | { kind: "alert"; id: string; alert: StreamAlertEvent };
+
 export function App() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [items, setItems] = useState<OverlayItem[]>([]);
 
   useEffect(() => {
     const ws = new WebSocket(`${params.ws}?room=${encodeURIComponent(params.room)}`);
     ws.onmessage = (ev) => {
       const data = JSON.parse(ev.data as string) as HubEvent;
-      if (data.type !== "message") return;
-      setMessages((prev) => [...prev.slice(-99), data.message]);
+      if (data.type === "message") {
+        setItems((prev) => [
+          ...prev.slice(-99),
+          { kind: "message", id: data.message.id, message: data.message },
+        ]);
+        return;
+      }
+      if (data.type === "stream_alert" && data.alert && params.eventMessages) {
+        setItems((prev) => [
+          ...prev.slice(-99),
+          { kind: "alert", id: data.alert.id, alert: data.alert },
+        ]);
+      }
     };
     return () => ws.close();
   }, []);
@@ -23,19 +40,24 @@ export function App() {
       ({
         fontSize: `${params.fontSize}px`,
         ["--overlay-emote-size" as string]: `${params.emoteSize}px`,
-        background:
-          params.bgTransparency >= 100
-            ? "transparent"
-            : `rgba(0, 0, 0, ${Math.max(0, Math.min(1, 1 - params.bgTransparency / 100))})`,
+        background: overlayBackground(params.bgTransparency),
       }) as React.CSSProperties,
     [],
   );
 
   return (
     <div className="overlay-root" style={rootStyle}>
-      {messages.map((m) => (
-        <OverlayMessage key={m.id} message={m} />
-      ))}
+      {items.map((item) =>
+        item.kind === "alert" ? (
+          <OverlayStreamAlert
+            key={item.id}
+            alert={item.alert}
+            showPlatformIcon={params.platformIcons}
+          />
+        ) : (
+          <OverlayMessage key={item.id} message={item.message} />
+        ),
+      )}
     </div>
   );
 }
@@ -65,7 +87,7 @@ function OverlayMessage({ message }: { message: ChatMessage }) {
         <span className="overlay-username" style={{ color: message.author.color ?? "#e4e4e7" }}>
           {message.author.displayName}
         </span>
-        <span className="overlay-text">: </span>
+        <span className="overlay-text-muted">: </span>
         <span className="overlay-text">
           <MessageBody text={message.text} emotes={message.emotes ?? []} emoteSize={params.emoteSize} />
         </span>

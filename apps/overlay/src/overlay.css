@@ -48,6 +48,72 @@ body,
   color: #e4e4e7;
 }
 
+.overlay-text-muted {
+  color: #71717a;
+}
+
+.overlay-stream-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  border-radius: 4px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.overlay-stream-alert-copy {
+  margin: 0;
+  min-width: 0;
+  flex: 1;
+  color: #e4e4e7;
+  line-height: 1.35;
+}
+
+.overlay-stream-alert-user {
+  font-weight: 600;
+}
+
+.overlay-stream-alert-text {
+  color: #e4e4e7;
+}
+
+.overlay-stream-alert--twitch-sub {
+  background: rgba(145, 70, 255, 0.2);
+  border-left: 3px solid #9146ff;
+}
+
+.overlay-stream-alert--twitch-bits {
+  background: rgba(145, 70, 255, 0.08);
+}
+
+.overlay-bits-badge {
+  color: #9146ff;
+  font-size: 10px;
+  margin-right: 4px;
+}
+
+.overlay-bits-prefix {
+  color: #bf94ff;
+  font-weight: 600;
+}
+
+.overlay-stream-alert--kick-sub {
+  background: rgba(83, 252, 24, 0.12);
+  border-left: 3px solid #53fc18;
+}
+
+.overlay-stream-alert--kick-donation {
+  background: rgba(83, 252, 24, 0.16);
+  border-left: 3px solid #53fc18;
+}
+
+.overlay-stream-alert--kick-sub .overlay-stream-alert-user,
+.overlay-stream-alert--kick-donation .overlay-stream-alert-user {
+  color: #53fc18;
+}
+
 .overlay-emote {
   display: inline-block;
   vertical-align: middle;
