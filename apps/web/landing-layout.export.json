@@ -1,0 +1,10 @@
+{
+  "omnichat-landing-brand-text": "{\"size\":\"96\",\"x\":\"79\",\"y\":\"-57\",\"rotate\":\"9\",\"curve\":\"12\",\"wave\":\"24\",\"color\":\"#010104\",\"shadow\":\"63\",\"locked\":true}",
+  "omnichat-landing-chat": "{\"x\":\"1216\",\"y\":\"42\",\"height\":\"720\",\"width\":\"640\",\"locked\":true}",
+  "omnichat-landing-hero-backing": "{\"x\":\"136\",\"y\":\"148\",\"width\":\"576\",\"locked\":true,\"color\":\"#ffffff\",\"opacity\":\"35\",\"radius\":\"16\",\"sevenTvHue\":\"0\",\"sevenTvSize\":\"28\",\"loginColor\":\"#0000ff\",\"loginOpacity\":\"100\",\"loginTextColor\":\"#ffffff\"}",
+  "omnichat-landing-logo": "{\"size\":\"320\",\"x\":\"-120\",\"y\":\"-179\",\"rotate\":\"0\",\"locked\":true}",
+  "omnichat-landing-om-star": "{\"size\":\"140\",\"x\":\"1611\",\"y\":\"218\",\"rotate\":\"-8\",\"locked\":false}",
+  "omnichat-landing-omnibunny": "{\"size\":\"160\",\"x\":\"842\",\"y\":\"605\",\"rotate\":\"0\",\"locked\":true}",
+  "omnichat-landing-platform-logos": "{\"coordSpace\":\"page\",\"locked\":true,\"logos\":{\"youtube\":{\"x\":\"41\",\"y\":\"503\",\"size\":\"93\",\"rotate\":\"-28\"},\"twitch\":{\"x\":\"91\",\"y\":\"788\",\"size\":\"84\",\"rotate\":\"4\"},\"kick\":{\"x\":\"24\",\"y\":\"721\",\"size\":\"62\",\"rotate\":\"-17\"},\"tiktok\":{\"x\":\"649\",\"y\":\"484\",\"size\":\"83\",\"rotate\":\"8\"},\"rumble\":{\"x\":\"632\",\"y\":\"193\",\"size\":\"94\",\"rotate\":\"-5\"},\"x\":{\"x\":\"661\",\"y\":\"716\",\"size\":\"93\",\"rotate\":\"6\"}}}",
+  "omnichat-landing-star": "{\"size\":\"279\",\"x\":\"-58\",\"y\":\"620\",\"rotate\":\"-6\",\"color\":\"#000000\",\"layer\":\"38\",\"variant\":\"0\",\"locked\":true}"
+}

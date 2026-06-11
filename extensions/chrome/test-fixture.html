@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OMnichat X Capture - DOM test fixture</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 720px;
+        margin: 24px auto;
+        padding: 0 16px;
+        background: #0a0a0a;
+        color: #e4e4e7;
+      }
+      h1 {
+        font-size: 18px;
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        margin: 16px 0;
+      }
+      button {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 0;
+        background: #7c3aed;
+        color: #fff;
+        cursor: pointer;
+      }
+      pre {
+        background: #18181b;
+        padding: 12px;
+        border-radius: 8px;
+        overflow: auto;
+        font-size: 12px;
+      }
+      [data-testid="cellInnerDiv"] {
+        border: 1px solid #27272a;
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin: 8px 0;
+      }
+      .ok {
+        color: #34d399;
+      }
+      .bad {
+        color: #f87171;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>OMnichat X Capture — DOM test fixture</h1>
+    <p>
+      This page simulates X's live-chat DOM so you can verify
+      <code>capture.js</code> parsing without visiting x.com. Open it in Chrome and click
+      <strong>Run extract()</strong>. It loads the same <code>capture.js</code> the extension uses.
+    </p>
+
+    <div class="controls">
+      <button id="run">Run extract()</button>
+      <button id="add">Add a message</button>
+    </div>
+
+    <h2 style="font-size: 14px">Simulated chat</h2>
+    <div id="chat">
+      <div data-testid="cellInnerDiv">
+        <div data-testid="User-Name">Alice Example
+@alice</div>
+        <div data-testid="messageText">hello from the live chat 👋</div>
+        <a role="link" href="/alice/status/111">link</a>
+      </div>
+      <div data-testid="cellInnerDiv">
+        <div data-testid="User-Name">Bob Stream
+@bob</div>
+        <div data-testid="messageText">let's go!!</div>
+        <a role="link" href="/bob/status/222">link</a>
+      </div>
+    </div>
+
+    <h2 style="font-size: 14px">extract() result</h2>
+    <pre id="out">(not run yet)</pre>
+
+    <h2 style="font-size: 14px">Assertions</h2>
+    <pre id="assert">(run to evaluate)</pre>
+
+    <script src="capture.js"></script>
+    <script>
+      const out = document.getElementById("out");
+      const assertEl = document.getElementById("assert");
+      let counter = 2;
+
+      document.getElementById("run").addEventListener("click", () => {
+        const result = globalThis.OmniXCapture.extract(document);
+        out.textContent = JSON.stringify(result, null, 2);
+
+        const checks = [];
+        checks.push([
+          "finds at least 2 messages",
+          result.length >= 2,
+        ]);
+        checks.push([
+          "author parsed without @handle line",
+          result.some((m) => m.author === "Alice Example"),
+        ]);
+        checks.push([
+          "text captured",
+          result.some((m) => m.text.includes("hello from the live chat")),
+        ]);
+        checks.push([
+          "stable key uses status href",
+          result.some((m) => m.key.startsWith("href:")),
+        ]);
+        const handle = globalThis.OmniXCapture.handleFromPath("/elonmusk/chat");
+        checks.push(["handleFromPath('/elonmusk/chat') === 'elonmusk'", handle === "elonmusk"]);
+        checks.push([
+          "handleFromPath('/i/broadcasts/123') is undefined",
+          globalThis.OmniXCapture.handleFromPath("/i/broadcasts/123") === undefined,
+        ]);
+
+        assertEl.innerHTML = checks
+          .map(([label, pass]) => `<span class="${pass ? "ok" : "bad"}">${pass ? "PASS" : "FAIL"}</span> ${label}`)
+          .join("\n");
+      });
+
+      document.getElementById("add").addEventListener("click", () => {
+        counter += 1;
+        const div = document.createElement("div");
+        div.setAttribute("data-testid", "cellInnerDiv");
+        div.innerHTML =
+          '<div data-testid="User-Name">User ' +
+          counter +
+          "\n@user" +
+          counter +
+          '</div><div data-testid="messageText">message number ' +
+          counter +
+          '</div><a role="link" href="/user' +
+          counter +
+          "/status/" +
+          counter +
+          '00">link</a>';
+        document.getElementById("chat").appendChild(div);
+      });
+    </script>
+  </body>
+</html>

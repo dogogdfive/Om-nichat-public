@@ -1,0 +1,6 @@
+# Install: sudo bash deploy/vps/setup-caddy.sh api.yourname.duckdns.org
+# Edit domain below, then copy to /etc/caddy/Caddyfile
+
+api.yourname.duckdns.org {
+	reverse_proxy localhost:8787
+}

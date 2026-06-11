@@ -1,0 +1,5 @@
+{
+  "npm.packageManager": "pnpm",
+  "npm.exclude": "**/node_modules/**",
+  "npm.scriptExplorerAction": "run"
+}

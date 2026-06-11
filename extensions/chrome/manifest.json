@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "OMnichat X Live Capture",
+  "version": "1.2.0",
+  "description": "Watch X profiles from OMnichat, detect when they go live, and capture live chat into your feed.",
+  "permissions": ["storage", "tabs", "alarms", "scripting"],
+  "host_permissions": [
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "http://localhost:8787/*",
+    "http://127.0.0.1:8787/*"
+  ],
+  "action": {
+    "default_title": "OMnichat X Live Capture",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["capture.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

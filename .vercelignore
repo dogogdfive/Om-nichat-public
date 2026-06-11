@@ -1,0 +1,15 @@
+node_modules
+.next
+.turbo
+data
+deploy
+docs
+extensions
+scripts
+apps/api
+apps/overlay
+*.tsbuildinfo
+.env
+.env.local
+*.log
+.git

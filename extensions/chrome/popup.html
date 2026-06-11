@@ -1,0 +1,204 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OMnichat X Live Capture</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        width: 360px;
+        margin: 0;
+        padding: 14px;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: #0a0a0a;
+        color: #f4f4f5;
+      }
+      h1 {
+        font-size: 14px;
+        margin: 0 0 2px;
+      }
+      p.sub {
+        margin: 0 0 12px;
+        font-size: 11px;
+        color: #a1a1aa;
+        line-height: 1.45;
+      }
+      label {
+        display: block;
+        font-size: 11px;
+        color: #a1a1aa;
+        margin: 10px 0 4px;
+      }
+      input[type="text"],
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        background: #18181b;
+        border: 1px solid #3f3f46;
+        border-radius: 6px;
+        padding: 7px 8px;
+        color: #f4f4f5;
+        font-size: 12px;
+      }
+      textarea {
+        min-height: 56px;
+        resize: vertical;
+        font-family: inherit;
+      }
+      input.mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 12px 0;
+      }
+      .toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+      button {
+        border: 0;
+        border-radius: 6px;
+        padding: 7px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button.primary {
+        background: #7c3aed;
+        color: #fff;
+      }
+      button.ghost {
+        background: #27272a;
+        color: #e4e4e7;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+      }
+      .status {
+        margin-top: 12px;
+        padding: 8px;
+        border-radius: 6px;
+        background: #18181b;
+        border: 1px solid #27272a;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .status .err {
+        color: #f87171;
+        word-break: break-word;
+      }
+      .status .ok {
+        color: #34d399;
+      }
+      .section {
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid #27272a;
+      }
+      .pill {
+        display: inline-block;
+        background: #27272a;
+        border-radius: 999px;
+        padding: 2px 8px;
+        margin: 2px 4px 2px 0;
+        font-size: 10px;
+      }
+      .pill.live {
+        background: #14532d;
+        color: #86efac;
+      }
+      .pill.operator {
+        background: #312e81;
+        color: #c4b5fd;
+      }
+      .mode-row {
+        display: flex;
+        gap: 8px;
+        margin: 8px 0 4px;
+      }
+      .mode-row label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        font-size: 11px;
+        color: #d4d4d8;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>OMnichat X Live Capture</h1>
+    <p class="sub">
+      Pair once with OMnichat. In <strong>Operator</strong> mode, one install on your machine
+      captures every X handle users add in OMnichat — they never need this extension.
+    </p>
+
+    <div id="pair-section">
+      <label for="apiUrl">OMnichat API URL</label>
+      <input id="apiUrl" type="text" placeholder="http://localhost:8787" value="http://localhost:8787" />
+
+      <label>Pairing mode</label>
+      <div class="mode-row">
+        <label><input type="radio" name="pairMode" value="super_admin" checked /> Operator (all users)</label>
+        <label><input type="radio" name="pairMode" value="workspace" /> Single workspace</label>
+      </div>
+
+      <label for="pairCode">Pairing code</label>
+      <input id="pairCode" class="mono" type="text" placeholder="From OMnichat Settings or /admin" maxlength="12" />
+
+      <div class="actions">
+        <button id="pair" class="primary" type="button">Pair with OMnichat</button>
+      </div>
+    </div>
+
+    <div id="watch-section" class="section" hidden>
+      <div id="operator-note" class="sub" hidden>
+        Handles sync from every workspace automatically. Users add X profiles under
+        <strong>Settings → Channels</strong> — no extension for them.
+      </div>
+
+      <div id="workspace-handles">
+        <label for="handles">X profiles to watch</label>
+        <textarea id="handles" placeholder="@xqc&#10;elonmusk"></textarea>
+        <p class="sub" style="margin-top: 6px">
+          Also synced from OMnichat → Settings → Channels. One handle per line.
+        </p>
+      </div>
+
+      <div class="row">
+        <span class="toggle">
+          <input id="enabled" type="checkbox" checked />
+          <label for="enabled" style="margin: 0">Auto-watch &amp; capture</label>
+        </span>
+        <button id="save" class="primary" type="button">Save</button>
+      </div>
+
+      <div class="actions">
+        <button id="poll" class="ghost" type="button">Check live now</button>
+        <button id="test" class="ghost" type="button">Send test</button>
+      </div>
+    </div>
+
+    <div class="status" id="status">Not paired yet.</div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

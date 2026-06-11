@@ -1,0 +1,24 @@
+[Unit]
+Description=OMnichat API (WebSockets + X scrape via xvfb)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=omnichat
+Group=omnichat
+WorkingDirectory=/opt/om-nichat
+EnvironmentFile=/opt/om-nichat/.env
+# Headed Chrome needs a virtual display when X_SCRAPE_HEADLESS=0
+Environment=DISPLAY=:99
+Environment=PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/om-nichat/.cache/ms-playwright
+ExecStart=/usr/bin/xvfb-run -a --server-args="-screen 0 1280x900x24" /usr/bin/node apps/api/dist/index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=omnichat-api
+
+[Install]
+WantedBy=multi-user.target

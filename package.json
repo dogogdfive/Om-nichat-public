@@ -1,0 +1,27 @@
+{
+  "name": "om-nichat",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "db:migrate": "node scripts/migrate-db.mjs",
+    "db:test": "node scripts/test-db.mjs",
+    "dev:api": "node scripts/dev-api.mjs",
+    "dev:web": "pnpm --filter @omnichat/web dev",
+    "capture:x-session": "pnpm --filter @omnichat/api exec node scripts/capture-x-session.mjs",
+    "x:login": "pnpm --filter @omnichat/api exec node scripts/x-login-vps.mjs",
+    "vps:build": "bash deploy/vps/build-api.sh",
+    "secrets:init": "node scripts/secrets.mjs init",
+    "secrets:encrypt": "node scripts/secrets.mjs encrypt",
+    "secrets:decrypt": "node scripts/secrets.mjs decrypt"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.7",
+    "postgres": "^3.4.5",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": { "node": ">=20" }
+}
