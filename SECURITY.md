@@ -6,7 +6,7 @@ If you discover a security issue, please report it responsibly.
 
 **Do not** open a public GitHub issue for security vulnerabilities.
 
-Email: **you@example.com** (replace with your contact before publishing)
+Email: **lopserf@gmail.com**
 
 Include:
 
