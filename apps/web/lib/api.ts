@@ -1,4 +1,8 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
+function trimEnv(value: string | undefined): string {
+  return (value ?? "").replace(/\r/g, "").trim();
+}
+
+export const API_URL = trimEnv(process.env.NEXT_PUBLIC_API_URL) || "http://localhost:8787";
 
 function apiBase(): string {
   if (typeof window !== "undefined") return "/api-backend";

@@ -1080,6 +1080,9 @@ export function OverlaySection({
         <SettingRow label="Platform Icons">
           <BoolSegment value={o.platformIcons} onChange={(v) => setO({ platformIcons: v })} />
         </SettingRow>
+        <SettingRow label="Show tab bar" help>
+          <BoolSegment value={o.showTabs} onChange={(v) => setO({ showTabs: v })} />
+        </SettingRow>
         <SettingRow label="Event Messages" help>
           <BoolSegment value={o.eventMessages} onChange={(v) => setO({ eventMessages: v })} />
         </SettingRow>

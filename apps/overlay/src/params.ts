@@ -6,6 +6,9 @@ export type OverlayParams = {
   platformIcons: boolean;
   bgTransparency: number;
   eventMessages: boolean;
+  showTabs: boolean;
+  tabId: string | null;
+  tabsBootstrap: string | null;
 };
 
 function parseBool(value: string | null, fallback: boolean): boolean {
@@ -19,21 +22,41 @@ function parseIntParam(value: string | null, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function trimParam(value: string | null): string | null {
+  if (value == null) return null;
+  return value.replace(/\r/g, "").trim();
+}
+
+function defaultWsUrl(): string {
+  if (typeof location !== "undefined" && location.hostname.endsWith("omnichat.wtf")) {
+    return "wss://api.omnichat.wtf";
+  }
+  return "ws://localhost:8787";
+}
+
+export function sanitizeWsUrl(raw: string | null | undefined): string {
+  const cleaned = (raw ?? "").replace(/\r/g, "").trim().replace(/\/$/, "");
+  if (!cleaned) return defaultWsUrl();
+  if (cleaned.startsWith("https://")) return cleaned.replace(/^https:\/\//, "wss://");
+  if (cleaned.startsWith("http://")) return cleaned.replace(/^http:\/\//, "ws://");
+  return cleaned;
+}
+
 export function readOverlayParams(search = location.search): OverlayParams {
   const params = new URLSearchParams(search);
-  const wsRaw = (params.get("ws") ?? "ws://localhost:8787").replace(/\/$/, "");
-  const ws = wsRaw.startsWith("http")
-    ? wsRaw.replace(/^http:\/\//, "ws://").replace(/^https:\/\//, "wss://")
-    : wsRaw;
+  const ws = sanitizeWsUrl(trimParam(params.get("ws")) ?? defaultWsUrl());
 
   return {
-    room: params.get("room") ?? "room:demo:public",
+    room: trimParam(params.get("room")) ?? "room:demo:public",
     ws,
     fontSize: parseIntParam(params.get("fontSize"), 18),
     emoteSize: parseIntParam(params.get("emoteSize"), 24),
     platformIcons: parseBool(params.get("platformIcons"), true),
     bgTransparency: parseIntParam(params.get("bgTransparency"), 0),
     eventMessages: parseBool(params.get("eventMessages"), true),
+    showTabs: parseBool(params.get("showTabs"), true),
+    tabId: trimParam(params.get("tabId")),
+    tabsBootstrap: trimParam(params.get("tabs")),
   };
 }
 

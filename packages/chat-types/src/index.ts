@@ -95,4 +95,36 @@ export type HubEvent =
   | { type: "poll_end"; poll: PollEvent }
   | { type: "pinned"; pinned: PinnedMessageEvent }
   | { type: "pinned_clear"; platform: Platform; channelId?: string }
-  | { type: "stream_alert"; alert: StreamAlertEvent };
+  | { type: "stream_alert"; alert: StreamAlertEvent }
+  | { type: "chat_tabs"; state: ChatTabsSyncState; channels?: ChatChannelEntry[] }
+  | { type: "overlay_action"; action: "open_channels_settings" };
+
+export type ChatTabHandle = {
+  platform: string;
+  handle: string;
+};
+
+export type ChatTab = {
+  id: string;
+  label: string;
+  handles: ChatTabHandle[];
+  profileId?: string;
+  isAll?: boolean;
+  isCombined?: boolean;
+  memberProfileIds?: string[];
+  hidden?: boolean;
+};
+
+export type ChatTabsSyncState = {
+  activeTabId: string;
+  tabs: ChatTab[];
+  syncId?: string;
+};
+
+export type ChatChannelEntry = {
+  id?: string;
+  platform: string;
+  handle: string;
+  profileId?: string;
+  sendLinked?: boolean;
+};

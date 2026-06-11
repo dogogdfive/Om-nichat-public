@@ -9,6 +9,7 @@ import {
   saveChatSettings,
   type ChatSettings,
 } from "@/lib/chat-settings-storage";
+import { encodeTabsBootstrap, loadChatTabs } from "@/lib/chat-tabs-storage";
 import {
   AccountSection,
   AppearanceSection,
@@ -350,9 +351,13 @@ export function ChatSettingsPanel({
       (process.env.NODE_ENV === "production"
         ? "https://omnichat.wtf/overlay"
         : "http://localhost:5173");
-    const ws = API_URL.replace(/^https:\/\//, "wss://").replace(/^http:\/\//, "ws://");
+    const ws = API_URL.replace(/\r/g, "")
+      .trim()
+      .replace(/^https:\/\//, "wss://")
+      .replace(/^http:\/\//, "ws://");
     const o = settings.overlay;
     const a = settings.appearance;
+    const tabState = loadChatTabs();
     const qs = new URLSearchParams({
       room: `room:${workspaceId}`,
       ws,
@@ -361,6 +366,9 @@ export function ChatSettingsPanel({
       platformIcons: o.platformIcons ? "1" : "0",
       bgTransparency: String(o.bgTransparency),
       eventMessages: o.eventMessages ? "1" : "0",
+      showTabs: o.showTabs !== false ? "1" : "0",
+      tabId: tabState.activeTabId,
+      tabs: encodeTabsBootstrap(tabState),
     });
     if (overlayToken) qs.set("t", overlayToken);
     return `${base.replace(/\/$/, "")}?${qs.toString()}`;

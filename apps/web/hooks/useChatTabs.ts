@@ -12,13 +12,14 @@ import {
   primaryHandleForTab,
   removeChatTabById,
   requestActivateProfileTab,
-  saveChatTabs,
+  selectChatTab,
   separateCombinedTab,
   syncChatTabsFromSettings,
   visibleTabs,
   type ChatTab,
   type ChatTabHandle,
 } from "@/lib/chat-tabs-storage";
+import { syncChatTabsToServer } from "@/lib/sync-chat-tabs";
 import {
   createStreamerProfile,
   loadChatSettings,
@@ -47,7 +48,8 @@ export function useChatTabs(workspaceId: string | null) {
     const settings = loadChatSettings();
     const next = syncChatTabsFromSettings(settings.profiles, settings.channels);
     startTransition(() => setState(next));
-  }, []);
+    if (workspaceId) void syncChatTabsToServer(workspaceId, next);
+  }, [workspaceId]);
 
   useEffect(() => {
     syncFromSettings();
@@ -59,6 +61,11 @@ export function useChatTabs(workspaceId: string | null) {
     };
   }, [refreshFromStorage, syncFromSettings]);
 
+  useEffect(() => {
+    if (!workspaceId) return;
+    void syncChatTabsToServer(workspaceId, loadChatTabs());
+  }, [workspaceId]);
+
   const activeTab =
     state.tabs.find((t) => t.id === state.activeTabId) ??
     state.tabs.find((t) => t.isAll) ??
@@ -66,27 +73,39 @@ export function useChatTabs(workspaceId: string | null) {
 
   const barTabs = useMemo(() => visibleTabs(state.tabs), [state.tabs]);
 
-  const setActiveTabId = useCallback((id: string) => {
-    const next = { ...loadChatTabs(), activeTabId: id };
-    saveChatTabs(next);
-    setState(next);
-  }, []);
+  const setActiveTabId = useCallback(
+    (id: string) => {
+      const next = selectChatTab(id);
+      setState(next);
+      if (workspaceId) void syncChatTabsToServer(workspaceId, next);
+    },
+    [workspaceId],
+  );
 
   const setCombineMode = useCallback((on: boolean) => {
     setCombineModeState(on);
     if (!on) setCombineSelection(null);
   }, []);
 
-  const combineTabs = useCallback((tabAId: string, tabBId: string) => {
-    const next = combineChatTabs(tabAId, tabBId);
-    setState(next);
-    setCombineModeState(false);
-    setCombineSelection(null);
-  }, []);
+  const combineTabs = useCallback(
+    (tabAId: string, tabBId: string) => {
+      const next = combineChatTabs(tabAId, tabBId);
+      setState(next);
+      setCombineModeState(false);
+      setCombineSelection(null);
+      if (workspaceId) void syncChatTabsToServer(workspaceId, next);
+    },
+    [workspaceId],
+  );
 
-  const separateTab = useCallback((combinedId: string) => {
-    setState(separateCombinedTab(combinedId));
-  }, []);
+  const separateTab = useCallback(
+    (combinedId: string) => {
+      const next = separateCombinedTab(combinedId);
+      setState(next);
+      if (workspaceId) void syncChatTabsToServer(workspaceId, next);
+    },
+    [workspaceId],
+  );
 
   const removeTab = useCallback(
     (id: string) => {
@@ -106,7 +125,9 @@ export function useChatTabs(workspaceId: string | null) {
         }
         dismissChatTabLabel(tab.label);
         saveChatSettings(settings);
-        setState(syncChatTabsFromSettings(settings.profiles, settings.channels));
+        const synced = syncChatTabsFromSettings(settings.profiles, settings.channels);
+        setState(synced);
+        if (workspaceId) void syncChatTabsToServer(workspaceId, synced);
       } else {
         const profileId = tab.profileId ?? tab.id;
         const byProfile = removeProfile(settings, profileId);
@@ -118,7 +139,9 @@ export function useChatTabs(workspaceId: string | null) {
 
         saveChatSettings({ ...settings, profiles: removed.profiles, channels: removed.channels });
         dismissChatTabLabel(tab.label);
-        setState(removeChatTabById(id));
+        const next = removeChatTabById(id);
+        setState(next);
+        if (workspaceId) void syncChatTabsToServer(workspaceId, next);
       }
 
       if (workspaceId) {
@@ -193,6 +216,7 @@ export function useChatTabs(workspaceId: string | null) {
         nextChannels,
       );
       setState(next);
+      if (workspaceId) void syncChatTabsToServer(workspaceId, next);
 
       const tab =
         next.tabs.find((t) => t.profileId === profile.id) ??

@@ -28,7 +28,8 @@ import { useChatTabs } from "@/hooks/useChatTabs";
 import { useViewerCounts } from "@/hooks/useViewerCounts";
 import { useChatChunkBuffer, type IncomingChatMessage } from "@/hooks/useChatChunkBuffer";
 import { collectMentionUsers, useMentionAutocomplete } from "@/hooks/useMentionAutocomplete";
-import { primaryHandleForTab, resolveTabHandles } from "@/lib/chat-tabs-storage";
+import { primaryHandleForTab, resolveTabHandles, applyRemoteChatTabs } from "@/lib/chat-tabs-storage";
+import { markRemoteChatTabsSync } from "@/lib/sync-chat-tabs";
 import { buildSendTargets, missingSendSetup } from "@/lib/send-targets";
 import { collectActiveChatters } from "@/lib/active-chatters";
 import { CHAT_SETTINGS_CHANGED, DEFAULT_SETTINGS, loadChatSettings, linkSendForAllConnected, saveChatSettings, type ChatSettings } from "@/lib/chat-settings-storage";
@@ -655,6 +656,17 @@ function ChatApp() {
                 note,
               }),
             );
+            return;
+          }
+
+          if (data.type === "chat_tabs" && data.state) {
+            markRemoteChatTabsSync(data.state.syncId);
+            applyRemoteChatTabs(data.state);
+            return;
+          }
+
+          if (data.type === "overlay_action" && data.action === "open_channels_settings") {
+            openSettings("channels");
             return;
           }
 

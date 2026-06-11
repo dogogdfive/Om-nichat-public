@@ -39,6 +39,9 @@ export class ChatHub {
     return false;
   }
 
+  /** Latest tab layout per room — replayed on subscribe so OBS catches uncombine/select. */
+  private chatTabs = new Map<string, HubEvent>();
+
   publish(roomId: string, event: HubEvent) {
     if (event.type === "message") {
       if (this.isDuplicate(roomId, event.message)) return;
@@ -66,6 +69,8 @@ export class ChatHub {
       buf.push(event.alert);
       if (buf.length > 50) buf.splice(0, buf.length - 50);
       this.streamAlerts.set(roomId, buf);
+    } else if (event.type === "chat_tabs") {
+      this.chatTabs.set(roomId, event);
     }
     const payload = JSON.stringify(event);
     for (const client of this.rooms.get(roomId) ?? [])
@@ -83,6 +88,8 @@ export class ChatHub {
       ws.send(JSON.stringify({ type: "pinned", pinned }));
     for (const alert of this.streamAlerts.get(roomId) ?? [])
       ws.send(JSON.stringify({ type: "stream_alert", alert }));
+    const tabs = this.chatTabs.get(roomId);
+    if (tabs) ws.send(JSON.stringify(tabs));
   }
 
   unsubscribe(roomId: string, ws: WebSocket) {

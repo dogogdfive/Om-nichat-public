@@ -47,6 +47,7 @@ export type ChatSettings = {
     platformIcons: boolean;
     eventMessages: boolean;
     deletedMessages: boolean;
+    showTabs: boolean;
   };
   profiles: StreamerProfile[];
   channels: ChatChannelEntry[];
@@ -83,6 +84,7 @@ export const DEFAULT_SETTINGS: ChatSettings = {
     platformIcons: true,
     eventMessages: true,
     deletedMessages: false,
+    showTabs: true,
   },
   profiles: [],
   channels: [],
@@ -91,6 +93,7 @@ export const DEFAULT_SETTINGS: ChatSettings = {
 const KEY = "omnichat-chat-settings";
 const SEVENTV_MIGRATION_KEY = "omnichat-seventv-default-v1";
 const PROFILES_MIGRATION_KEY = "omnichat-profiles-v1";
+const OVERLAY_BG_MIGRATION_KEY = "omnichat-overlay-bg-dark-v1";
 
 export const CHAT_SETTINGS_CHANGED = "omnichat-chat-settings-changed";
 
@@ -184,6 +187,12 @@ export function loadChatSettings(): ChatSettings {
       localStorage.setItem(PROFILES_MIGRATION_KEY, "1");
       localStorage.setItem(KEY, JSON.stringify(merged));
       return merged;
+    }
+
+    if (!localStorage.getItem(OVERLAY_BG_MIGRATION_KEY) && merged.overlay.bgTransparency >= 100) {
+      merged = { ...merged, overlay: { ...merged.overlay, bgTransparency: 0 } };
+      localStorage.setItem(OVERLAY_BG_MIGRATION_KEY, "1");
+      localStorage.setItem(KEY, JSON.stringify(merged));
     }
 
     merged = migrateProfiles(merged);

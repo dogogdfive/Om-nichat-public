@@ -75,6 +75,9 @@ importers:
 
   apps/overlay:
     dependencies:
+      '@omnichat/chat-tabs':
+        specifier: workspace:*
+        version: link:../../packages/chat-tabs
       '@omnichat/chat-types':
         specifier: workspace:*
         version: link:../../packages/chat-types
@@ -103,6 +106,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@omnichat/chat-tabs':
+        specifier: workspace:*
+        version: link:../../packages/chat-tabs
       next:
         specifier: ^15.1.3
         version: 15.5.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -145,6 +151,12 @@ importers:
         version: 5.9.3
 
   packages/automod:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/chat-tabs:
     devDependencies:
       typescript:
         specifier: ^5.7.2
