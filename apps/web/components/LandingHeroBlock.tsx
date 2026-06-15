@@ -337,9 +337,17 @@ export function LandingHeroBlock({ pageRef }: Props) {
             <Link href="/login" className="landing-nav-link-embed-anchor landing-nav-link-embed-anchor--login px-5 py-2.5 text-sm">
               Login
             </Link>
-            <Link href="/login" className="landing-nav-link-embed-anchor btn-primary px-5 py-2.5 text-sm">
+            <Link href="/signup" className="landing-nav-link-embed-anchor btn-primary px-5 py-2.5 text-sm">
               Sign Up
             </Link>
+            <a
+              href="https://github.com/dogogdfive/Om-nichat-public/releases"
+              className="landing-nav-link-embed-anchor px-5 py-2.5 text-sm"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Download app
+            </a>
           </div>
         </div>
         {editable ? <span className="landing-hero-embed-badge">Drag hero box</span> : null}

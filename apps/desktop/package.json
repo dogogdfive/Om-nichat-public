@@ -1,0 +1,51 @@
+{
+  "name": "@omnichat/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "description": "OMnichat desktop app — wraps omnichat.wtf in Electron",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "prepare-icon": "node scripts/prepare-icon.mjs",
+    "embed-icon": "node scripts/embed-icon.mjs",
+    "dev": "pnpm build && electron .",
+    "pack:win": "pnpm prepare-icon && pnpm build && electron-builder --win && pnpm embed-icon",
+    "pack:mac": "pnpm prepare-icon && pnpm build && electron-builder --mac",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "rcedit": "^4.0.1",
+    "sharp": "^0.34.5",
+    "to-ico": "^1.1.5",
+    "typescript": "^5.7.2"
+  },
+  "build": {
+    "appId": "wtf.omnichat.app",
+    "productName": "OMnichat",
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "files": [
+      "dist/**/*",
+      "resources/**/*"
+    ],
+    "npmRebuild": false,
+    "icon": "resources/icon.ico",
+    "win": {
+      "target": ["nsis"],
+      "signAndEditExecutable": false,
+      "icon": "resources/icon.ico"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.social-networking"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

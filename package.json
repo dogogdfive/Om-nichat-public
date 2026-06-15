@@ -14,7 +14,11 @@
     "vps:build": "bash deploy/vps/build-api.sh",
     "secrets:init": "node scripts/secrets.mjs init",
     "secrets:encrypt": "node scripts/secrets.mjs encrypt",
-    "secrets:decrypt": "node scripts/secrets.mjs decrypt"
+    "secrets:decrypt": "node scripts/secrets.mjs decrypt",
+    "desktop:dev": "pnpm --filter @omnichat/desktop dev",
+    "desktop:build": "pnpm --filter @omnichat/desktop build",
+    "desktop:pack:win": "pnpm --filter @omnichat/desktop pack:win",
+    "desktop:pack:mac": "pnpm --filter @omnichat/desktop pack:mac"
   },
   "devDependencies": {
     "dotenv": "^16.4.7",
