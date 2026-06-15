@@ -15,6 +15,7 @@ import { ChatSettingsPanel, type SettingsSection } from "@/components/ChatSettin
 import { ChatThemeToggle } from "@/components/ChatThemeToggle";
 import { ChatFeed } from "@/components/ChatFeed";
 import { ChatChannelTabs, messageMatchesChatTab } from "@/components/ChatChannelTabs";
+import { ChatPopout } from "@/components/ChatPopout";
 import { ChatPollOverlay } from "@/components/ChatPollOverlay";
 import { PinnedMessageBar } from "@/components/PinnedMessageBar";
 import { EmoteComposePicker, useEmoteAutocomplete } from "@/components/EmoteComposePicker";
@@ -22,13 +23,14 @@ import { UserProfileModal, type ModActionRecord, type RecentChatMessage } from "
 import { ViewerCountBar } from "@/components/ViewerCountBar";
 import { ChatNotificationBell } from "@/components/ChatNotificationBell";
 import { PlatformEmblem } from "@/components/PlatformLogos";
+import { useChatPopout } from "@/hooks/useChatPopout";
 import { useEmoteSets } from "@/hooks/useEmoteSets";
 import { useChannelEmoteGroups } from "@/hooks/useChannelEmotes";
 import { useChatTabs } from "@/hooks/useChatTabs";
 import { useViewerCounts } from "@/hooks/useViewerCounts";
 import { useChatChunkBuffer, type IncomingChatMessage } from "@/hooks/useChatChunkBuffer";
 import { collectMentionUsers, useMentionAutocomplete } from "@/hooks/useMentionAutocomplete";
-import { primaryHandleForTab, resolveTabHandles, applyRemoteChatTabs } from "@/lib/chat-tabs-storage";
+import { primaryHandleForTab, resolveTabHandles, resolveFeedFilterHandles, applyRemoteChatTabs, reconcileChatTabsState } from "@/lib/chat-tabs-storage";
 import { markRemoteChatTabsSync } from "@/lib/sync-chat-tabs";
 import { buildSendTargets, missingSendSetup } from "@/lib/send-targets";
 import { collectActiveChatters } from "@/lib/active-chatters";
@@ -39,6 +41,7 @@ import { chatThemeClass, loadChatTheme, saveChatTheme, type ChatTheme } from "@/
 import { applyModNoteToLines, formatModNote } from "@/lib/format-mod-note";
 import type { ResolvedEmote } from "@/lib/emotes/seventv";
 import type { PinnedMessageEvent, PollEvent, StreamAlertEvent } from "@/lib/overlay-types";
+import { isTestStreamAlert } from "@/lib/overlay-types";
 import { streamAlertToChatLine } from "@/lib/stream-alert-line";
 
 type ChatMessageLine = {
@@ -104,6 +107,14 @@ function IconLightning() {
   return (
     <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" />
+    </svg>
+  );
+}
+
+function IconPopout() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z" />
     </svg>
   );
 }
@@ -250,19 +261,20 @@ function ChatApp() {
 
   const resolvedActiveTab = useMemo(() => {
     if (activeTab.isAll) return activeTab;
-    const handles = resolveTabHandles(activeTab, settingsProfiles, settingsChannelRows);
+    const handles = resolveTabHandles(activeTab, settingsProfiles, settingsChannelRows, chatTabs);
     return { ...activeTab, handles };
-  }, [activeTab, settingsProfiles, settingsChannelRows]);
+  }, [activeTab, settingsProfiles, settingsChannelRows, chatTabs]);
 
-  const feedFilterHandles = useMemo(() => {
-    if (activeTab.isAll) {
-      return settingsChannelRows.map((c) => ({
-        platform: c.platform,
-        handle: c.handle.replace(/^@/, ""),
-      }));
-    }
-    return resolvedActiveTab.handles;
-  }, [activeTab.isAll, resolvedActiveTab.handles, settingsChannelRows]);
+  const feedFilterHandles = useMemo(
+    () =>
+      resolveFeedFilterHandles(
+        activeTab,
+        settingsProfiles,
+        settingsChannelRows,
+        chatTabs,
+      ),
+    [activeTab, settingsProfiles, settingsChannelRows, chatTabs],
+  );
 
   const feedFilterRef = useRef(feedFilterHandles);
   feedFilterRef.current = feedFilterHandles;
@@ -301,7 +313,7 @@ function ChatApp() {
           ? t
           : {
               ...t,
-              handles: resolveTabHandles(t, settingsProfiles, settingsChannelRows),
+              handles: resolveTabHandles(t, settingsProfiles, settingsChannelRows, chatTabs),
             },
       ),
     [chatTabs, settingsProfiles, settingsChannelRows],
@@ -461,6 +473,15 @@ function ChatApp() {
     setChatTheme(theme);
     saveChatTheme(theme);
   }, []);
+
+  const chatFont = chatFontFamily(chatAppearance.font);
+  const {
+    supported: popoutSupported,
+    isOpen: popoutOpen,
+    container: popoutContainer,
+    toggle: togglePopout,
+    close: closePopout,
+  } = useChatPopout(chatTheme, chatFont);
 
   useEffect(() => {
     if (chatInitRef.current) return;
@@ -661,7 +682,27 @@ function ChatApp() {
 
           if (data.type === "chat_tabs" && data.state) {
             markRemoteChatTabsSync(data.state.syncId);
-            applyRemoteChatTabs(data.state);
+            const settings = loadChatSettings();
+            const { state: next, profiles, channels } = reconcileChatTabsState(
+              settings.profiles,
+              settings.channels,
+              {
+                remoteTabs: data.state.tabs,
+                remoteChannels: data.channels,
+                remoteActiveTabId: data.state.activeTabId,
+              },
+            );
+            if (
+              profiles.length !== settings.profiles.length ||
+              channels.length !== settings.channels.length
+            ) {
+              saveChatSettings({
+                ...settings,
+                profiles,
+                channels: channels as typeof settings.channels,
+              });
+            }
+            applyRemoteChatTabs(next);
             return;
           }
 
@@ -707,6 +748,7 @@ function ChatApp() {
 
           if (data.type === "stream_alert" && data.alert) {
             const alert = data.alert as StreamAlertEvent;
+            if (isTestStreamAlert(alert)) return;
             if (seenStreamAlertIdsRef.current.has(alert.id)) return;
             seenStreamAlertIdsRef.current.add(alert.id);
             if (seenStreamAlertIdsRef.current.size > 500) {
@@ -1037,6 +1079,18 @@ function ChatApp() {
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
           <ChatNotificationBell userId={userId} />
+          {popoutSupported ? (
+            <button
+              type="button"
+              className={`prochat-popout-toggle${popoutOpen ? " prochat-popout-toggle--active" : ""}`}
+              onClick={() => void togglePopout()}
+              aria-label={popoutOpen ? "Close chat pop-out" : "Open chat pop-out"}
+              aria-pressed={popoutOpen}
+              title={popoutOpen ? "Close pop-out window" : "Pop out chat (always on top)"}
+            >
+              <IconPopout />
+            </button>
+          ) : null}
           <ChatThemeToggle theme={chatTheme} onChange={handleThemeChange} />
           {viewerDisplayMode !== "none" && viewerSnapshot && (
             <ViewerCountBar
@@ -1239,6 +1293,20 @@ function ChatApp() {
           onClose={() => setProfileTarget(null)}
         />
       )}
+
+      {popoutContainer ? (
+        <ChatPopout
+          container={popoutContainer}
+          tabLabel={resolvedActiveTab.isAll ? "All" : resolvedActiveTab.label}
+          lines={lines}
+          activeTab={resolvedActiveTab}
+          filterHandles={feedFilterHandles}
+          emotesRef={emotesRef}
+          emoteSize={emoteSize}
+          timestampFormat={chatAppearance.timestampFormat}
+          onClose={closePopout}
+        />
+      ) : null}
     </div>
   );
 }

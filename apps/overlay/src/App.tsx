@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ChatMessage, HubEvent, Platform, PinnedMessageEvent, StreamAlertEvent } from "@omnichat/chat-types";
+import { isTestStreamAlert } from "@omnichat/chat-types";
 import { messageMatchesChatTab } from "@omnichat/chat-tabs";
 import { OverlayAddChannels } from "./OverlayAddChannels";
 import { OverlayChannelTabs } from "./OverlayChannelTabs";
 import { MessageBody } from "./MessageBody";
-import { OverlayPinnedBar } from "./OverlayPinnedBar";
+import { OverlayPinnedBar, pinKey } from "./OverlayPinnedBar";
 import { OverlayStreamAlert } from "./OverlayStreamAlert";
+import { loadDismissedPins, saveDismissedPins } from "./overlay-dismissed-pins";
 import { platformIconSrc, readOverlayParams } from "./params";
 import { overlayBackground } from "./theme";
 import { useOverlayAutoScroll } from "./useOverlayAutoScroll";
@@ -79,6 +81,7 @@ function pinnedMatchesTab(
 export function App() {
   const [items, setItems] = useState<OverlayItem[]>([]);
   const [pinned, setPinned] = useState<Record<string, PinnedMessageEvent>>({});
+  const [dismissedPins, setDismissedPins] = useState<Set<string>>(() => loadDismissedPins());
   const [wsOpen, setWsOpen] = useState(false);
   const emoteMap = useOverlayEmotes(params.ws, workspaceId);
   const {
@@ -86,12 +89,12 @@ export function App() {
     barTabs,
     allTabs,
     activeTabId,
+    activeTabLabel,
     resolvedActiveTab,
     feedFilterHandles,
     combineMode,
     combineSelection,
     addPanelOpen,
-    streamerProfiles,
     selectTab,
     separateTab,
     removeTab,
@@ -157,6 +160,7 @@ export function App() {
         return;
       }
       if (data.type === "stream_alert" && data.alert && params.eventMessages) {
+        if (isTestStreamAlert(data.alert)) return;
         setItems((prev) => [
           ...prev.slice(-99),
           { kind: "alert", id: data.alert.id, alert: data.alert },
@@ -169,12 +173,23 @@ export function App() {
     };
   }, [applyRemote]);
 
+  const dismissPinned = useCallback((key: string) => {
+    setDismissedPins((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      saveDismissedPins(next);
+      return next;
+    });
+  }, []);
+
   const visiblePinned = useMemo(
     () =>
-      Object.values(pinned).filter((pin) =>
-        pinnedMatchesTab(pin, resolvedActiveTab, feedFilterHandles),
+      Object.values(pinned).filter(
+        (pin) =>
+          !dismissedPins.has(pinKey(pin)) &&
+          pinnedMatchesTab(pin, resolvedActiveTab, feedFilterHandles),
       ),
-    [pinned, resolvedActiveTab, feedFilterHandles],
+    [pinned, dismissedPins, resolvedActiveTab, feedFilterHandles],
   );
 
   const visibleItems = useMemo(
@@ -194,9 +209,14 @@ export function App() {
   const emptyHint = useMemo(() => {
     if (visibleItems.length > 0) return null;
     if (!wsOpen) return "Connecting…";
-    if (items.length > 0) return "No messages for this tab — open chat to sync tabs";
+    if (items.length > 0) {
+      const label = resolvedActiveTab.isAll ? "All" : activeTabLabel;
+      return `No messages for ${label} — check channel is added on the correct platform`;
+    }
     return "Waiting for chat…";
-  }, [visibleItems.length, wsOpen, items.length]);
+  }, [visibleItems.length, wsOpen, items.length, resolvedActiveTab.isAll, activeTabLabel]);
+
+  const feedHasPin = visiblePinned.length > 0;
 
   const rootStyle = useMemo(
     () =>
@@ -217,7 +237,6 @@ export function App() {
           activeTabId={activeTabId}
           combineMode={combineMode}
           combineSelection={combineSelection}
-          streamerProfiles={streamerProfiles}
           onSelect={selectTab}
           onRemove={removeTab}
           onToggleCombineMode={toggleCombineMode}
@@ -233,28 +252,34 @@ export function App() {
           onAdded={refreshAfterAdd}
         />
       ) : null}
-      <OverlayPinnedBar
-        pinned={visiblePinned}
-        emoteMap={emoteMap}
-        emoteSize={params.emoteSize}
-        showPlatformIcon={params.platformIcons}
-      />
-      <div className="overlay-feed" ref={feedRef}>
-        <div className="overlay-feed-inner">
-          <div className="overlay-feed-spacer" aria-hidden />
-          {emptyHint ? <p className="overlay-empty-hint">{emptyHint}</p> : null}
-          {visibleItems.map((item) =>
-            item.kind === "alert" ? (
-              <OverlayStreamAlert
-                key={item.id}
-                alert={item.alert}
-                showPlatformIcon={params.platformIcons}
-              />
-            ) : (
-              <OverlayMessage key={item.id} message={item.message} emoteMap={emoteMap} />
-            ),
-          )}
-          <div className="overlay-feed-anchor" aria-hidden />
+      <div className="overlay-feed-wrap">
+        <OverlayPinnedBar
+          pinned={visiblePinned}
+          emoteMap={emoteMap}
+          emoteSize={params.emoteSize}
+          showPlatformIcon={params.platformIcons}
+          onDismiss={dismissPinned}
+        />
+        <div
+          className={`overlay-feed${feedHasPin ? " overlay-feed--has-pin" : ""}`}
+          ref={feedRef}
+        >
+          <div className="overlay-feed-inner">
+            <div className="overlay-feed-spacer" aria-hidden />
+            {emptyHint ? <p className="overlay-empty-hint">{emptyHint}</p> : null}
+            {visibleItems.map((item) =>
+              item.kind === "alert" ? (
+                <OverlayStreamAlert
+                  key={item.id}
+                  alert={item.alert}
+                  showPlatformIcon={params.platformIcons}
+                />
+              ) : (
+                <OverlayMessage key={item.id} message={item.message} emoteMap={emoteMap} />
+              ),
+            )}
+            <div className="overlay-feed-anchor" aria-hidden />
+          </div>
         </div>
       </div>
     </div>

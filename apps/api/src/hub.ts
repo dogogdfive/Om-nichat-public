@@ -1,9 +1,10 @@
-import type {
-  ChatMessage,
-  HubEvent,
-  PinnedMessageEvent,
-  PollEvent,
-  StreamAlertEvent,
+import {
+  isTestStreamAlert,
+  type ChatMessage,
+  type HubEvent,
+  type PinnedMessageEvent,
+  type PollEvent,
+  type StreamAlertEvent,
 } from "@omnichat/chat-types";
 import type { WebSocket } from "ws";
 const MAX = 500;
@@ -65,10 +66,12 @@ export class ChatHub {
     } else if (event.type === "pinned_clear") {
       this.pinned.get(roomId)?.delete(this.stateKey(event.platform, event.channelId));
     } else if (event.type === "stream_alert") {
-      const buf = this.streamAlerts.get(roomId) ?? [];
-      buf.push(event.alert);
-      if (buf.length > 50) buf.splice(0, buf.length - 50);
-      this.streamAlerts.set(roomId, buf);
+      if (!isTestStreamAlert(event.alert)) {
+        const buf = this.streamAlerts.get(roomId) ?? [];
+        buf.push(event.alert);
+        if (buf.length > 50) buf.splice(0, buf.length - 50);
+        this.streamAlerts.set(roomId, buf);
+      }
     } else if (event.type === "chat_tabs") {
       this.chatTabs.set(roomId, event);
     }
@@ -86,8 +89,10 @@ export class ChatHub {
       ws.send(JSON.stringify({ type: "poll", poll }));
     for (const pinned of this.pinned.get(roomId)?.values() ?? [])
       ws.send(JSON.stringify({ type: "pinned", pinned }));
-    for (const alert of this.streamAlerts.get(roomId) ?? [])
+    for (const alert of this.streamAlerts.get(roomId) ?? []) {
+      if (isTestStreamAlert(alert)) continue;
       ws.send(JSON.stringify({ type: "stream_alert", alert }));
+    }
     const tabs = this.chatTabs.get(roomId);
     if (tabs) ws.send(JSON.stringify(tabs));
   }

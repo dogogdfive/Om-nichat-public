@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { ChatMessage } from "@omnichat/chat-types";
+import { linkifyNodes } from "./linkify";
 import { resolveEmoteUrl } from "./params";
 import type { ResolvedEmote } from "./useOverlayEmotes";
 
@@ -15,7 +16,11 @@ function lookupEmote(map: Map<string, ResolvedEmote>, token: string): ResolvedEm
 }
 
 function renderTokenText(token: string, key: number) {
-  return <span key={key}>{token}</span>;
+  const linked = linkifyNodes(token, `${key}-`);
+  if (linked.length === 1 && typeof linked[0] === "string") {
+    return <span key={key}>{token}</span>;
+  }
+  return <span key={key}>{linked}</span>;
 }
 
 function renderTokenWith7tv(
@@ -70,7 +75,7 @@ export function MessageBody({
     const hasInline = emotes.length > 0;
     const has7tv = emoteMap.size > 0;
 
-    if (!hasInline && !has7tv) return [text];
+    if (!hasInline && !has7tv) return linkifyNodes(text, "plain-");
 
     if (!hasInline) {
       return renderSegmentWith7tv(text, "t", emoteMap, emoteSize);
@@ -88,7 +93,7 @@ export function MessageBody({
         out.push(
           ...(has7tv
             ? renderSegmentWith7tv(segment, `s-${cursor}`, emoteMap, emoteSize)
-            : [segment]),
+            : linkifyNodes(segment, `s-${cursor}-`)),
         );
       }
       if (end > start) {
@@ -113,7 +118,7 @@ export function MessageBody({
       out.push(
         ...(has7tv
           ? renderSegmentWith7tv(tail, `e-${cursor}`, emoteMap, emoteSize)
-          : [tail]),
+          : linkifyNodes(tail, `e-${cursor}-`)),
       );
     }
 

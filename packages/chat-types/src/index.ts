@@ -88,6 +88,13 @@ export type StreamAlertEvent = {
   timestamp: string;
 };
 
+const TEST_SUB_KINDS = new Set<StreamAlertKind>(["sub", "resub", "sub_gift"]);
+
+/** Synthetic sub alerts from overlay test tooling — never show in chat/overlay. */
+export function isTestStreamAlert(alert: Pick<StreamAlertEvent, "id" | "kind">): boolean {
+  return alert.id.startsWith("test:") && TEST_SUB_KINDS.has(alert.kind);
+}
+
 export type HubEvent =
   | { type: "message"; message: ChatMessage }
   | { type: "mod"; mod: ModActionEvent }

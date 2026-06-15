@@ -144,6 +144,65 @@ function groupChannelsForTabs(
   return byProfile;
 }
 
+function mergeChannelRows(a: ChannelRow[], b: ChannelRow[]): ChannelRow[] {
+  const out = [...a];
+  for (const ch of b) {
+    const exists = out.some(
+      (c) =>
+        c.platform.toLowerCase() === ch.platform.toLowerCase() &&
+        normalizeLabel(c.handle) === normalizeLabel(ch.handle),
+    );
+    if (!exists) out.push(ch);
+  }
+  return out;
+}
+
+function unionStreamerTabs(...lists: ChatTab[][]): ChatTab[] {
+  const out: ChatTab[] = [];
+  for (const tabs of lists) {
+    for (const tab of tabs) {
+      if (tab.isAll || tab.hidden) continue;
+      if (tab.isCombined) {
+        if (!out.some((t) => t.id === tab.id)) out.push(tab);
+        continue;
+      }
+      const key = tab.profileId ?? tab.id;
+      if (out.some((t) => !t.isCombined && (t.profileId ?? t.id) === key)) continue;
+      out.push(tab);
+    }
+  }
+  return out;
+}
+
+export function reconcileChatTabsState(
+  profiles: StreamerProfile[],
+  channels: ChannelRow[],
+  opts?: {
+    preferredActiveTabId?: string;
+    remoteTabs?: ChatTab[];
+    remoteChannels?: ChannelRow[];
+    remoteActiveTabId?: string;
+  },
+): { state: ChatTabsState; profiles: StreamerProfile[]; channels: ChannelRow[] } {
+  const current = loadChatTabs();
+  const mergedChannels = opts?.remoteChannels?.length
+    ? mergeChannelRows(channels, opts.remoteChannels)
+    : channels;
+  const tabSources = unionStreamerTabs(current.tabs, opts?.remoteTabs ?? []);
+  const hydrated = hydrateSettingsFromTabs(tabSources, profiles, mergedChannels);
+  const repairedProfiles = repairSettingsProfiles(hydrated.profiles, hydrated.channels);
+  const repairedChannels = hydrated.channels;
+
+  let next = syncChatTabsFromSettings(repairedProfiles, repairedChannels);
+  const preferred =
+    opts?.preferredActiveTabId ?? opts?.remoteActiveTabId ?? current.activeTabId;
+  if (next.tabs.some((t) => t.id === preferred && !t.hidden)) {
+    next = { ...next, activeTabId: preferred };
+  }
+
+  return { state: next, profiles: repairedProfiles, channels: repairedChannels };
+}
+
 function unionHandles(...lists: ChatTabHandle[][]): ChatTabHandle[] {
   const out: ChatTabHandle[] = [];
   for (const list of lists) {
@@ -204,13 +263,46 @@ function labelsForMemberIds(
   });
 }
 
+function memberHandlesFromSources(
+  profileId: string,
+  profiles: StreamerProfile[],
+  channels: ChannelRow[],
+  tabs: ChatTab[],
+): ChatTabHandle[] {
+  const fromProfileId = channels
+    .filter((c) => c.profileId === profileId)
+    .map((c) => ({
+      platform: c.platform,
+      handle: c.handle.replace(/^@/, ""),
+    }));
+
+  const memberTab = tabs.find((t) => (t.profileId ?? t.id) === profileId && !t.isCombined);
+  const label = profiles.find((p) => p.id === profileId)?.label ?? memberTab?.label;
+
+  const fromLabel = label
+    ? channels
+        .filter((c) => normalizeLabel(c.handle) === normalizeLabel(label))
+        .map((c) => ({
+          platform: c.platform,
+          handle: c.handle.replace(/^@/, ""),
+        }))
+    : [];
+
+  return unionHandles(fromProfileId, fromLabel, memberTab?.handles ?? []);
+}
+
 function handlesForMemberIds(
   memberProfileIds: string[],
   grouped: Map<string, { label: string; handles: ChatTabHandle[] }>,
   tabs: ChatTab[],
+  profiles: StreamerProfile[],
+  channels: ChannelRow[],
 ): ChatTabHandle[] {
-  const lists: ChatTabHandle[][] = memberProfileIds.map(
-    (id) => grouped.get(id)?.handles ?? tabs.find((t) => (t.profileId ?? t.id) === id)?.handles ?? [],
+  const lists: ChatTabHandle[][] = memberProfileIds.map((id) =>
+    unionHandles(
+      grouped.get(id)?.handles ?? [],
+      memberHandlesFromSources(id, profiles, channels, tabs),
+    ),
   );
   return unionHandles(...lists);
 }
@@ -349,9 +441,25 @@ export function syncChatTabsFromSettings(
   channels: ChannelRow[],
 ): ChatTabsState {
   const current = loadChatTabs();
-  const repairedProfiles = repairSettingsProfiles(profiles, channels);
+  let repairedProfiles = repairSettingsProfiles(profiles, channels);
+  let workingChannels = channels;
+  let grouped = groupChannelsForTabs(repairedProfiles, workingChannels);
+
+  if (grouped.size === 0) {
+    const hydrated = hydrateSettingsFromTabs(current.tabs, repairedProfiles, workingChannels);
+    repairedProfiles = repairSettingsProfiles(hydrated.profiles, hydrated.channels);
+    workingChannels = hydrated.channels;
+    grouped = groupChannelsForTabs(repairedProfiles, workingChannels);
+  }
+
+  if (grouped.size === 0) {
+    const hasVisibleStreamers = current.tabs.some(
+      (t) => t.isCombined || (!t.isAll && !t.hidden),
+    );
+    if (hasVisibleStreamers) return current;
+  }
+
   const allTab = current.tabs.find((t) => t.isAll) ?? DEFAULT_CHAT_TABS.tabs[0]!;
-  const grouped = groupChannelsForTabs(repairedProfiles, channels);
 
   for (const [, { label }] of grouped) {
     undismissChatTabLabel(label);
@@ -386,7 +494,13 @@ export function syncChatTabsFromSettings(
       continue;
     }
     const label = labelsForMemberIds(validMembers, current.tabs, grouped).join(" / ");
-    const handles = handlesForMemberIds(validMembers, grouped, current.tabs);
+    const handles = handlesForMemberIds(
+      validMembers,
+      grouped,
+      current.tabs,
+      repairedProfiles,
+      workingChannels,
+    );
     synced.push({
       ...ct,
       memberProfileIds: validMembers,
@@ -470,23 +584,45 @@ export function primaryHandleForTab(tab: ChatTab): ChatTabHandle | null {
   );
 }
 
+/** Handles used to filter the message feed for a tab (All, streamer, or combined). */
+export function resolveFeedFilterHandles(
+  tab: ChatTab,
+  profiles: StreamerProfile[],
+  channels: ChannelRow[],
+  allTabs: ChatTab[] = [],
+): ChatTabHandle[] {
+  if (tab.isAll) {
+    return channels.map((c) => ({
+      platform: c.platform,
+      handle: c.handle.replace(/^@/, ""),
+    }));
+  }
+
+  const resolved = resolveTabHandles(tab, profiles, channels, allTabs);
+  if (tab.isCombined && tab.memberProfileIds?.length) {
+    const memberLists = tab.memberProfileIds.map((id) =>
+      memberHandlesFromSources(id, profiles, channels, allTabs),
+    );
+    const merged = unionHandles(resolved, ...memberLists, tab.handles);
+    return merged.length > 0 ? merged : tab.handles;
+  }
+
+  return resolved.length > 0 ? resolved : tab.handles;
+}
+
 export function resolveTabHandles(
   tab: ChatTab,
   profiles: { id: string; label: string }[],
   channels: { platform: string; handle: string; profileId?: string }[],
+  allTabs: ChatTab[] = [],
 ): ChatTabHandle[] {
   if (tab.isAll) return [];
 
   if (tab.isCombined && tab.memberProfileIds?.length) {
     const lists = tab.memberProfileIds.map((profileId) =>
-      channels
-        .filter((c) => c.profileId === profileId)
-        .map((c) => ({
-          platform: c.platform,
-          handle: c.handle.replace(/^@/, ""),
-        })),
+      memberHandlesFromSources(profileId, profiles, channels, allTabs),
     );
-    const fromSettings = unionHandles(...lists);
+    const fromSettings = unionHandles(...lists, tab.handles);
     if (fromSettings.length > 0) return fromSettings;
     return tab.handles;
   }
@@ -504,6 +640,15 @@ export function resolveTabHandles(
     }));
 
   if (fromSettings.length > 0) return fromSettings;
+
+  const byLabel = channels
+    .filter((c) => normalizeLabel(c.handle) === normalizeLabel(tab.label))
+    .map((c) => ({
+      platform: c.platform,
+      handle: c.handle.replace(/^@/, ""),
+    }));
+
+  if (byLabel.length > 0) return unionHandles(byLabel);
 
   return tab.handles;
 }

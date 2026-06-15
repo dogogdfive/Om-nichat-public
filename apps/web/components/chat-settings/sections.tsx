@@ -1030,7 +1030,7 @@ export function OverlaySection({
                 : "Send test alerts to live chat"}
           </button>
           <span className="text-xs text-zinc-500">
-            Twitch sub, bits, Kick sub, gift subs, and Kicks — visible in chat and OBS overlay.
+            Sends Twitch bits and Kick Kicks test alerts — subs are real only.
           </span>
         </div>
         {testAlertsState === "error" && testAlertsError ? (

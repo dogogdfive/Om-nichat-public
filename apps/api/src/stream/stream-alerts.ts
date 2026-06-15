@@ -1,4 +1,4 @@
-import type { StreamAlertEvent } from "@omnichat/chat-types";
+import { isTestStreamAlert, type StreamAlertEvent } from "@omnichat/chat-types";
 import type { ChatHub } from "../hub.js";
 import type { ChatUserstate } from "tmi.js";
 
@@ -18,6 +18,7 @@ export function publishStreamAlert(
   workspaceIds: Iterable<string>,
   alert: StreamAlertEvent,
 ): void {
+  if (isTestStreamAlert(alert)) return;
   for (const workspaceId of workspaceIds) {
     hub.publish(`room:${workspaceId}`, { type: "stream_alert", alert });
     hub.publish(`room:${workspaceId}:public`, { type: "stream_alert", alert });

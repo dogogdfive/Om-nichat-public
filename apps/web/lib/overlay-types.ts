@@ -49,3 +49,11 @@ export type StreamAlertEvent = {
   amount?: string;
   timestamp: string;
 };
+
+/** Synthetic sub alerts from overlay test tooling — never show in chat. */
+export function isTestStreamAlert(alert: Pick<StreamAlertEvent, "id" | "kind">): boolean {
+  return (
+    alert.id.startsWith("test:") &&
+    (alert.kind === "sub" || alert.kind === "resub" || alert.kind === "sub_gift")
+  );
+}

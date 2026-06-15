@@ -12,8 +12,10 @@ import {
   primaryHandleForTab,
   removeChatTabById,
   requestActivateProfileTab,
+  reconcileChatTabsState,
   selectChatTab,
   separateCombinedTab,
+  streamerTabCount,
   syncChatTabsFromSettings,
   visibleTabs,
   type ChatTab,
@@ -46,9 +48,20 @@ export function useChatTabs(workspaceId: string | null) {
 
   const syncFromSettings = useCallback(() => {
     const settings = loadChatSettings();
-    const next = syncChatTabsFromSettings(settings.profiles, settings.channels);
+    const { state: next, profiles, channels } = reconcileChatTabsState(
+      settings.profiles,
+      settings.channels,
+    );
+    if (
+      profiles.length !== settings.profiles.length ||
+      channels.length !== settings.channels.length
+    ) {
+      saveChatSettings({ ...settings, profiles, channels: channels as typeof settings.channels });
+    }
     startTransition(() => setState(next));
-    if (workspaceId) void syncChatTabsToServer(workspaceId, next);
+    if (workspaceId && streamerTabCount(next.tabs) > 0) {
+      void syncChatTabsToServer(workspaceId, next);
+    }
   }, [workspaceId]);
 
   useEffect(() => {

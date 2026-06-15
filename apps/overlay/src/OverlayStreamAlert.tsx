@@ -1,4 +1,5 @@
 import type { StreamAlertEvent, StreamAlertKind } from "@omnichat/chat-types";
+import { linkifyNodes } from "./linkify";
 import { platformIconSrc } from "./params";
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -23,6 +24,12 @@ function bannerClass(platform: string, kind: StreamAlertKind): string {
 
 function usesBanner(kind: StreamAlertKind): boolean {
   return kind === "sub" || kind === "resub" || kind === "sub_gift" || kind === "donation";
+}
+
+function LinkifiedText({ text, keyPrefix }: { text: string; keyPrefix: string }) {
+  const nodes = linkifyNodes(text, keyPrefix);
+  if (nodes.length === 1 && typeof nodes[0] === "string") return <>{text}</>;
+  return <>{nodes}</>;
 }
 
 function alertBody(alert: StreamAlertEvent): string {
@@ -66,7 +73,9 @@ export function OverlayStreamAlert({ alert, showPlatformIcon }: Props) {
           <span className="overlay-stream-alert-user" style={{ color: userColor }}>
             {user}
           </span>{" "}
-          <span className="overlay-stream-alert-text">{alert.text.trim()}</span>
+          <span className="overlay-stream-alert-text">
+            <LinkifiedText text={alert.text.trim()} keyPrefix="banner-" />
+          </span>
         </p>
       </div>
     );
@@ -93,7 +102,9 @@ export function OverlayStreamAlert({ alert, showPlatformIcon }: Props) {
           </span>
           <span className="overlay-text-muted">: </span>
           <span className="overlay-bits-prefix">cheer{bits} </span>
-          <span className="overlay-stream-alert-text">{alertBody(alert)}</span>
+          <span className="overlay-stream-alert-text">
+            <LinkifiedText text={alertBody(alert)} keyPrefix="bits-" />
+          </span>
         </p>
       </div>
     );
@@ -114,7 +125,9 @@ export function OverlayStreamAlert({ alert, showPlatformIcon }: Props) {
           {user}
         </span>
         <span className="overlay-text-muted">: </span>
-        <span className="overlay-text">{alert.text.trim()}</span>
+        <span className="overlay-text">
+          <LinkifiedText text={alert.text.trim()} keyPrefix="alert-" />
+        </span>
       </p>
     </div>
   );

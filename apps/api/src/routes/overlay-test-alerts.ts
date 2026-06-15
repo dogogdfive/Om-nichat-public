@@ -10,20 +10,11 @@ function pickChannel(workspaceId: string, platform: Platform, fallback: string):
   return watched[0] ?? fallback;
 }
 
-function buildTestAlerts(workspaceId: string, twitchChannel: string, kickChannel: string): StreamAlertEvent[] {
+function buildTestAlerts(twitchChannel: string, kickChannel: string): StreamAlertEvent[] {
   const ts = () => new Date().toISOString();
   return [
     {
-      id: `test:twitch:sub:${Date.now()}`,
-      platform: "twitch",
-      channelId: twitchChannel,
-      kind: "sub",
-      text: "subscribed at Tier 1. They've subscribed for 3 months!",
-      user: "TestSubFan",
-      timestamp: ts(),
-    },
-    {
-      id: `test:twitch:bits:${Date.now() + 1}`,
+      id: `test:twitch:bits:${Date.now()}`,
       platform: "twitch",
       channelId: twitchChannel,
       kind: "bits",
@@ -33,26 +24,7 @@ function buildTestAlerts(workspaceId: string, twitchChannel: string, kickChannel
       timestamp: ts(),
     },
     {
-      id: `test:kick:sub:${Date.now() + 2}`,
-      platform: "kick",
-      channelId: kickChannel,
-      kind: "sub",
-      text: "TestKickFan subscribed!",
-      user: "TestKickFan",
-      timestamp: ts(),
-    },
-    {
-      id: `test:kick:gift:${Date.now() + 3}`,
-      platform: "kick",
-      channelId: kickChannel,
-      kind: "sub_gift",
-      text: "TestGifter gifted 5 subscriptions to the community!",
-      user: "TestGifter",
-      amount: "5",
-      timestamp: ts(),
-    },
-    {
-      id: `test:kick:kicks:${Date.now() + 4}`,
+      id: `test:kick:kicks:${Date.now() + 1}`,
       platform: "kick",
       channelId: kickChannel,
       kind: "donation",
@@ -65,7 +37,7 @@ function buildTestAlerts(workspaceId: string, twitchChannel: string, kickChannel
 }
 
 async function fireTestAlerts(hub: ChatHub, workspaceId: string, twitchChannel: string, kickChannel: string) {
-  const alerts = buildTestAlerts(workspaceId, twitchChannel, kickChannel);
+  const alerts = buildTestAlerts(twitchChannel, kickChannel);
   for (let i = 0; i < alerts.length; i++) {
     publishStreamAlert(hub, [workspaceId], alerts[i]!);
     if (i < alerts.length - 1) {
