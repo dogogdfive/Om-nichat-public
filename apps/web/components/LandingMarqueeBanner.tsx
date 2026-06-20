@@ -1,6 +1,6 @@
 "use client";
 
-const PHRASE = "one chat to box to rule them all";
+const PHRASE = "one chat box to rule them all";
 const CHUNK = `${PHRASE} • `;
 
 export function LandingMarqueeBanner() {
